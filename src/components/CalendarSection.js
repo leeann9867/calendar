@@ -5,63 +5,72 @@ import EventModal from './EventModal';
 /**
  * 달력 그리드 렌더링 및 날짜 색상/이벤트 바 표시
  */
-function CalendarSection({ currentDate, events, modalConfig, openModal, closeModal, onSave, onDelete }) {
-    if (!modalConfig) return null;
-
-    // 현재 월의 날짜 생성 (42칸 고정)
-    const generateDays = () => {
-        const days = [];
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const firstDay = new Date(year, month, 1).getDay();
-        const lastDate = new Date(year, month + 1, 0).getDate();
-
-        for (let i = firstDay - 1; i >= 0; i--) days.push({ date: new Date(year, month, -i), type: 'prev' });
-        for (let i = 1; i <= lastDate; i++) days.push({ date: new Date(year, month, i), type: 'current' });
-        while (days.length < 42) days.push({ date: new Date(year, month + 1, days.length - (firstDay + lastDate) + 1), type: 'next' });
-        return days;
-    };
+function CalendarSection({
+                             currentDate,
+                             calendarData = [], // useCalendar에서 생성한 42칸 데이터
+                             getEventsForDate,   // 반복 일정까지 계산된 필터 함수
+                             modalConfig,
+                             openModal,
+                             closeModal,
+                             onSave,
+                             onDelete
+                         }) {
+    // 1. 요일 헤더
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
     return (
         <div className="calendar-grid">
-            {/* 요일 헤더 (CSS nth-child에 의해 토/일 색상 적용) */}
-            {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+            {/* 요일 헤더 */}
+            {weekdays.map(d => (
                 <div key={d} className="day-header">{d}</div>
             ))}
 
-            {/* 날짜 셀 */}
-            {generateDays().map((item, i) => (
-                <div
-                    key={i}
-                    className={`day-column ${item.type !== 'current' ? 'other-month' : ''} ${formatDate(new Date()) === formatDate(item.date) ? 'today' : ''}`}
-                    onClick={() => openModal(formatDate(item.date))}
-                >
-                    <span className="day-num">{item.date.getDate()}</span>
+            {/* 날짜 셀 (useCalendar에서 계산된 calendarData 사용) */}
+            {calendarData.map((item, i) => {
+                // useCalendar의 로직을 사용하여 해당 날짜의 이벤트 가져오기
+                const dayEvents = getEventsForDate ? getEventsForDate(item.date) : [];
+                const dateStr = formatDate(item.date);
+                const isToday = formatDate(new Date()) === dateStr;
+                const isCurrentMonth = item.isCurrentMonth;
 
-                    {/* 일정 바 렌더링 (간략화된 버전) */}
-                    <div className="event-container">
-                        {events.filter(ev => formatDate(ev.date) === formatDate(item.date)).map(ev => (
-                            <div
-                                key={ev.id}
-                                className={`event-bar color-${ev.color || 'blue'}`}
-                                onClick={(e) => { e.stopPropagation(); openModal(formatDate(item.date), ev); }}
-                            >
-                                {ev.title}
-                            </div>
-                        ))}
+                return (
+                    <div
+                        key={i}
+                        className={`day-column ${!isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}`}
+                        onClick={() => openModal(dateStr)}
+                    >
+                        <span className="day-num">{item.date.getDate()}</span>
+
+                        {/* 일정 바 렌더링 */}
+                        <div className="event-container">
+                            {dayEvents.map(ev => (
+                                <div
+                                    key={ev.id}
+                                    className={`event-bar ${ev.color || 'blue'}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openModal(dateStr, ev);
+                                    }}
+                                >
+                                    {ev.title || '(제목 없음)'}
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
 
-            {/* 모달 렌더링 */}
-            {modalConfig.isOpen && (
+            {/* 모달 렌더링: modalConfig가 존재하고 isOpen이 true일 때만 */}
+            {modalConfig && modalConfig.isOpen && (
                 <EventModal
                     initData={modalConfig.event || {
                         date: modalConfig.date,
+                        title: '',
+                        color: 'blue',
+                        repeat: 'none',
+                        until: null,
                         time: "09:00",
-                        endTime: "10:00",
-                        isNotificationEnabled: true,
-                        reminders: [10]
+                        endTime: "10:00"
                     }}
                     onSave={onSave}
                     onDelete={onDelete}

@@ -1,24 +1,20 @@
 import React from 'react';
 
 export default function RepeatSettings({ form, onChange }) {
-    // until이 null이면 '종료일 없음', 값이 있으면 '날짜 지정' 상태
     const isNoLimit = !form.until;
 
-    const handleRepeatChange = (val) => {
-        onChange('repeat', val);
-        if (val !== 'none') {
-            onChange('until', null); // 반복 선택 시 기본은 종료일 없음
-        }
-    };
-
     return (
-        <>
-            <div className="settings-row">
-                <span className="label">🔁 반복</span>
+        <div style={{ marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontWeight: '600' }}>🔁 반복 설정</span>
                 <select
-                    className="repeat-select-ui"
                     value={form.repeat || 'none'}
-                    onChange={e => handleRepeatChange(e.target.value)}
+                    onChange={e => {
+                        const val = e.target.value;
+                        onChange('repeat', val);
+                        if (val !== 'none') onChange('until', null);
+                    }}
+                    style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid #ddd' }}
                 >
                     <option value="none">반복 안 함</option>
                     <option value="daily">매일</option>
@@ -29,33 +25,41 @@ export default function RepeatSettings({ form, onChange }) {
             </div>
 
             {form.repeat && form.repeat !== 'none' && (
-                <div className="until-container">
-                    <div className="settings-row">
-                        <span className="sub-label">종료일</span>
-                        {isNoLimit ? (
-                            /* 종료일이 없을 때만 버튼 표시 */
+                <div style={{ background: '#f8f9fa', padding: '12px', borderRadius: '12px' }}>
+                    {isNoLimit ? (
+                        <button
+                            onClick={() => onChange('until', form.date)}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                border: '1px solid #007aff',
+                                borderRadius: '8px',
+                                background: '#fff',
+                                color: '#007aff',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            종료일 없음 (계속 반복)
+                        </button>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                                type="date"
+                                value={form.until}
+                                onChange={e => onChange('until', e.target.value)}
+                                style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+                            />
                             <button
-                                className="no-limit-btn active"
-                                onClick={() => onChange('until', form.date)}
+                                onClick={() => onChange('until', null)}
+                                style={{ background: '#eee', border: 'none', borderRadius: '50%', width: '25px', height: '25px', cursor: 'pointer' }}
                             >
-                                계속 반복
+                                ✕
                             </button>
-                        ) : (
-                            /* 종료일을 설정하면 버튼은 숨겨지고 날짜 선택창만 표시 */
-                            <div className="until-input-wrapper">
-                                <input
-                                    type="date"
-                                    value={form.until}
-                                    onChange={e => onChange('until', e.target.value)}
-                                />
-                                <button className="reset-until-btn" onClick={() => onChange('until', null)}>
-                                    ✕
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             )}
-        </>
+        </div>
     );
 }

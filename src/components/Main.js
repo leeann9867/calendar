@@ -19,6 +19,8 @@ function Main({ calendar }) {
             {/* 달력 그리드 섹션에 모든 상태와 제어 함수 전달 */}
             <CalendarSection
                 currentDate={calendar.currentDate}
+                calendarData={calendar.calendarData} // 추가
+                getEventsForDate={calendar.getEventsForDate} // 추가
                 events={calendar.events}
                 modalConfig={calendar.modalConfig}
                 openModal={calendar.openModal}
