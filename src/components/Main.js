@@ -1,30 +1,24 @@
 import React from 'react';
 import CalendarSection from './CalendarSection';
-import EventModal from './EventModal'; // 내부 부품을 포함한 모달
+import EventModal from './EventModal';
 import { useCalendar } from '../hooks/useCalendar';
 import { useNotification } from '../hooks/useNotification';
 
 /**
- * 메인 컨텐츠 영역
- * 캘린더 렌더링과 모달 호출을 제어하는 실질적인 '두뇌' 역할
+ * 메인 비즈니스 영역
+ * 데이터 로직 연결 및 모달 팝업 제어
  */
 function Main() {
     const {
-        currentDate,
-        events,
-        modalConfig,
-        openModal,
-        closeModal,
-        handleSaveEvent,
-        handleDeleteEvent
+        currentDate, events, modalConfig,
+        openModal, closeModal, handleSaveEvent, handleDeleteEvent
     } = useCalendar();
 
-    // 백그라운드 알림 감시 엔진 실행
+    // 알림 서비스 실행
     useNotification(events);
 
     return (
         <main className="content-container">
-            {/* 달력 그리드 표시 */}
             <CalendarSection
                 currentDate={currentDate}
                 events={events}
@@ -32,7 +26,7 @@ function Main() {
                 onEventClick={(date, event) => openModal(date, event)}
             />
 
-            {/* 모달이 열려있을 때만 렌더링 */}
+            {/* 모달 호출부: 정의되지 않은 에러 방지를 위해 하단 index.js 기반 호출 */}
             {modalConfig.isOpen && (
                 <EventModal
                     initData={modalConfig.event || {
