@@ -5,62 +5,64 @@ import ReminderSettings from './ReminderSettings';
 import ColorPicker from './ColorPicker';
 
 export default function EventModal({ initData, onSave, onDelete, onClose }) {
-    const [form, setForm] = useState(initData);
+    // 제목이 없으면 '(제목 없음)'으로 저장되거나 빈 값으로 저장 가능
+    const [form, setForm] = useState({
+        ...initData,
+        title: initData.title || ''
+    });
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+
+    const handleSave = () => {
+        // 제목이 없어도 저장 가능 (필요시 기본값 할당)
+        const finalForm = {
+            ...form,
+            title: form.title.trim() === '' ? '(제목 없음)' : form.title
+        };
+        onSave(finalForm);
+    };
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
 
-                {/* 1. 제목 & 컬러피커 (이미지 상단 우측 배치용) */}
-                <div className="modal-header-row">
-                    <input
-                        className="input-title-main"
-                        value={form.title || ''}
-                        onChange={e => updateForm('title', e.target.value)}
-                        placeholder="일정 제목"
-                        autoFocus
-                    />
-                    <div className="color-picker-wrapper">
-                        <span className="color-label">색상</span>
-                        <ColorPicker
-                            selectedColor={form.color}
-                            onChange={(color) => updateForm('color', color)}
-                        />
-                    </div>
+                {/* 제목 입력 */}
+                <input
+                    className="input-title-main"
+                    value={form.title}
+                    onChange={e => updateForm('title', e.target.value)}
+                    placeholder="일정 제목 (선택 사항)"
+                    autoFocus
+                />
+
+                {/* 색상 선택기: 제목 아래 가로 배치 */}
+                <div className="color-picker-horizontal">
+                    <ColorPicker selectedColor={form.color} onChange={(c) => updateForm('color', c)} />
                 </div>
 
                 <div className="modal-scroll-area">
-                    {/* 2. 시간 설정 (하루종일 스위치 + 24시 셀렉트) */}
                     <div className="modal-row-group">
                         <TimeSettings form={form} onChange={updateForm} />
                     </div>
-
-                    {/* 3. 반복 설정 (매일/매주 + 종료일) */}
                     <div className="modal-row-group">
                         <RepeatSettings form={form} onChange={updateForm} />
                     </div>
-
-                    {/* 4. 알림 설정 (칩 스타일) */}
                     <div className="modal-row-group">
                         <ReminderSettings form={form} onChange={updateForm} />
                     </div>
                 </div>
 
-                {/* 5. 하단 버튼 (취소/저장/삭제) */}
                 <div className="modal-actions">
                     {initData.id && (
                         <button className="btn-delete-trigger" onClick={() => setShowDeleteConfirm(true)}>삭제</button>
                     )}
                     <div className="right-group">
                         <button className="btn-cancel" onClick={onClose}>취소</button>
-                        <button className="btn-save" onClick={() => onSave(form)}>저장</button>
+                        <button className="btn-save" onClick={handleSave}>저장</button>
                     </div>
                 </div>
 
-                {/* 삭제 컨펌 레이어 */}
                 {showDeleteConfirm && (
                     <div className="sub-confirm-overlay">
                         <div className="sub-confirm-box">

@@ -1,25 +1,23 @@
 import React from 'react';
 
-const COLORS = [
-    { id: 'ev-blue', code: '#1a73e8' }, { id: 'ev-red', code: '#d93025' },
-    { id: 'ev-green', code: '#0b8043' }, { id: 'ev-yellow', code: '#f4b400' },
-    { id: 'ev-purple', code: '#8e24aa' }, { id: 'ev-default', code: '#5f6368' }
+const colors = [
+    { name: 'blue', value: '#007aff' },
+    { name: 'red', value: '#ff5252' },
+    { name: 'green', value: '#4caf50' },
+    { name: 'orange', value: '#ff9500' },
+    { name: 'purple', value: '#af52de' }
 ];
 
-const ColorPicker = ({ selectedColor, onSelect }) => (
-    <div className="form-group">
-        <label>색상</label>
-        <div className="color-picker">
-            {COLORS.map(c => (
+export default function ColorPicker({ selectedColor, onChange }) {
+    return (
+        <div className="color-picker-container">
+            {colors.map(c => (
                 <div
-                    key={c.id}
-                    className={`color-dot ${c.id} ${selectedColor === c.id ? 'active' : ''}`}
-                    style={{ backgroundColor: c.code }}
-                    onClick={() => onSelect(c.id)}
+                    key={c.name}
+                    className={`color-dot ${c.name} ${selectedColor === c.name ? 'active' : ''}`}
+                    onClick={() => onChange(c.name)}
                 />
             ))}
         </div>
-    </div>
-);
-
-export default ColorPicker;
+    );
+}

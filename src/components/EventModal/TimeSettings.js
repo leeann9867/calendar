@@ -1,37 +1,47 @@
 import React from 'react';
 
-function TimeSettings({ form, setForm }) {
-    const handleStartTimeChange = (e) => {
-        const newStart = e.target.value; // "HH:mm"
-        const [h, m] = newStart.split(':').map(Number);
-        const newEnd = `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+export default function TimeSettings({ form, onChange }) {
+    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+    const minutes = ["00", "10", "20", "30", "40", "50"];
 
-        setForm({ ...form, time: newStart, endTime: newEnd });
+    const handleTime = (type, unit, val) => {
+        const parts = (form[type] || "09:00").split(':');
+        if (unit === 'h') parts[0] = val; else parts[1] = val;
+        onChange(type, parts.join(':'));
     };
 
     return (
-        <div className="time-section">
-            <div className="setting-item justify-between">
-                <span>🕒 하루 종일</span>
-                <label className="ios-switch">
-                    <input
-                        type="checkbox"
-                        checked={form.isAllDay}
-                        onChange={(e) => setForm({...form, isAllDay: e.target.checked})}
-                    />
-                    <span className="slider round"></span>
-                </label>
+        <>
+            <div className="settings-row">
+                <span className="label">🕒 하루 종일</span>
+                <input type="checkbox" checked={form.isAllDay} onChange={e => onChange('isAllDay', e.target.checked)} />
             </div>
-
             {!form.isAllDay && (
-                <div className="time-picker-row">
-                    <input type="time" value={form.time} onChange={handleStartTimeChange} className="time-input" />
-                    <span className="arrow">→</span>
-                    <input type="time" value={form.endTime} onChange={(e) => setForm({...form, endTime: e.target.value})} className="time-input" />
+                <div className="time-picker-24h-grid">
+                    <div className="time-unit">
+                        <span className="sub-label">시작</span>
+                        <div className="custom-select-group">
+                            <select value={form.time.split(':')[0]} onChange={e => handleTime('time', 'h', e.target.value)}>
+                                {hours.map(h => <option key={h} value={h}>{h}시</option>)}
+                            </select>
+                            <select value={form.time.split(':')[1]} onChange={e => handleTime('time', 'm', e.target.value)}>
+                                {minutes.map(m => <option key={m} value={m}>{m}분</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="time-unit">
+                        <span className="sub-label">종료</span>
+                        <div className="custom-select-group">
+                            <select value={form.endTime.split(':')[0]} onChange={e => handleTime('endTime', 'h', e.target.value)}>
+                                {hours.map(h => <option key={h} value={h}>{h}시</option>)}
+                            </select>
+                            <select value={form.endTime.split(':')[1]} onChange={e => handleTime('endTime', 'm', e.target.value)}>
+                                {minutes.map(m => <option key={m} value={m}>{m}분</option>)}
+                            </select>
+                        </div>
+                    </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }
-
-export default TimeSettings;

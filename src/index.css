@@ -1,68 +1,105 @@
-/* --- 1. 전역 변수 및 기초 초기화 --- */
+/* --- 1. 기초 환경 설정 (화면 꽉 채우기 필수) --- */
 :root {
-  --primary-color: #007aff;    /* 삼성 블루 */
-  --sunday-color: #ff5252;     /* 일요일 레드 */
-  --saturday-color: #007aff;   /* 토요일 블루 */
+  --primary-color: #007aff;
+  --sunday-color: #ff5252;
+  --saturday-color: #007aff;
   --bg-gray: #f2f2f7;
   --border-color: #efeff4;
   --text-main: #1c1c1e;
   --text-muted: #8e8e93;
-  --modal-bg: rgba(0, 0, 0, 0.4);
+  --modal-bg: rgba(0, 0, 0, 0.45);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 스크롤 방지 */
+}
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: #ffffff;
   color: var(--text-main);
-  overflow: hidden; /* 앱 전체 스크롤 방지 */
 }
 
-/* --- 2. 앱 레이아웃 (App.js) --- */
+/* --- 2. 앱 전체 레이아웃 (App.js wrapper) --- */
 .wrapper {
-  display: flex; flex-direction: column;
-  height: 100vh; width: 100vw;
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* 화면 전체 높이 사용 */
+  width: 100vw;
 }
 
 .calendar-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 15px 25px; border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0; /* 헤더 높이 유지 */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 25px;
+  border-bottom: 1px solid var(--border-color);
   background: #fff;
 }
 
-.current-month { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+.current-month {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
 
 .nav-btns { display: flex; gap: 10px; }
 .nav-btns button {
   padding: 8px 16px; border: 1px solid #ddd; background: #fff;
   border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
 }
-.today-btn { color: var(--primary-color); border-color: var(--primary-color) !important; }
+.today-btn { color: var(--primary-color) !important; border-color: var(--primary-color) !important; }
 
-/* --- 3. 달력 그리드 (CalendarSection.js) --- */
-.main-content-area { flex: 1; display: flex; flex-direction: column; }
+/* --- 3. 달력 그리드 시스템 --- */
+.main-content-area {
+  flex: 1; /* 남은 공간 100% 차지 */
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* 자식 그리드가 부모를 뚫고 나가는 것 방지 */
+}
 
 .calendar-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  /* 요일 헤더(40px) + 날짜 6행(남은 공간 균등분할) */
   grid-template-rows: 40px repeat(6, 1fr);
-  height: 100%; border-top: 1px solid var(--border-color);
+  flex: 1;
+  width: 100%;
+  border-top: 1px solid var(--border-color);
 }
 
 .day-header {
-  display: flex; justify-content: center; align-items: center;
-  font-size: 13px; font-weight: 700; color: var(--text-muted);
-  border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  background: #fff;
 }
 
 .day-column {
-  position: relative; border-right: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color); padding: 8px; cursor: pointer;
+  position: relative;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 5px;
+  cursor: pointer;
+  background: #fff;
+  overflow: hidden;
 }
 
 .day-column:hover { background-color: #f9f9f9; }
 
-/* 주말 색상 처리 (토:파랑 / 일:빨강) */
+/* 주말 색상 (일요일: 레드, 토요일: 블루) */
 .calendar-grid .day-header:nth-child(1),
 .calendar-grid .day-column:nth-child(7n+8) .day-num { color: var(--sunday-color) !important; }
 
@@ -70,53 +107,84 @@ body {
 .calendar-grid .day-column:nth-child(7n+14) .day-num { color: var(--saturday-color) !important; }
 
 .day-num {
-  display: inline-block; width: 28px; height: 28px; line-height: 28px;
-  text-align: center; font-size: 15px; font-weight: 500;
+  display: inline-block;
+  width: 26px; height: 26px; line-height: 26px;
+  text-align: center; font-size: 14px; font-weight: 500;
+  margin-bottom: 2px;
 }
 
 /* 오늘 날짜 표시 */
 .day-column.today .day-num {
-  background-color: var(--primary-color); color: #fff !important; border-radius: 50%;
+  background-color: var(--primary-color);
+  color: #fff !important;
+  border-radius: 50%;
 }
 
-/* 다른 달 날짜 */
+/* 이전/다음 달 날짜 */
 .day-column.other-month { background-color: #fafafa; }
 .day-column.other-month .day-num { color: #d1d1d6 !important; }
 
-/* --- 4. 일정 바 (Event Bars) --- */
-.event-container { display: flex; flex-direction: column; gap: 2px; margin-top: 25px; }
-.event-bar {
-  height: 22px; line-height: 22px; padding: 0 6px; font-size: 11px;
-  font-weight: 600; color: #fff; border-radius: 4px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+/* --- 4. 일정 바 (Event Bar) --- */
+.event-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
 }
+
+.event-bar {
+  height: 18px;
+  line-height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .event-bar.blue { background-color: #007aff; }
 .event-bar.red { background-color: #ff5252; }
-.event-bar.green { background-color: #34c75 green; }
+.event-bar.green { background-color: #34c759; }
+.event-bar.orange { background-color: #ff9500; }
+.event-bar.purple { background-color: #af52de; }
 
-/* --- 5. 모달 (EventModal) 디자인 --- */
+/* --- 5. 모달 (EventModal) 스타일 --- */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: var(--modal-bg); display: flex; justify-content: center; align-items: center;
+  background: var(--modal-bg);
+  display: flex; justify-content: center; align-items: center;
   z-index: 9999; backdrop-filter: blur(5px);
 }
 
 .modal-content {
   background: #fff; width: 420px; border-radius: 30px; padding: 30px;
-  box-shadow: 0 25px 50px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 15px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+  display: flex; flex-direction: column; gap: 10px;
 }
 
-.modal-header-row { display: flex; justify-content: space-between; align-items: flex-start; }
-
+/* 제목 입력 */
 .input-title-main {
-  width: 75%; border: none; border-bottom: 2.5px solid #eee;
-  font-size: 26px; font-weight: 800; padding: 10px 0; outline: none;
+  width: 100%; border: none; border-bottom: 2.5px solid #eee;
+  font-size: 24px; font-weight: 800; padding: 10px 0; outline: none;
 }
 .input-title-main:focus { border-bottom-color: var(--primary-color); }
 
-/* 모달 내부 행 설정 */
+/* 색상 선택기 (가로 정렬) */
+.color-picker-horizontal { display: flex; padding: 5px 0 15px 0; }
+.color-picker-container { display: flex !important; flex-direction: row !important; gap: 14px !important; }
+.color-dot {
+  width: 22px !important; height: 22px !important; border-radius: 50%;
+  cursor: pointer; border: 2px solid transparent; transition: transform 0.2s;
+}
+.color-dot.active { border-color: #333 !important; transform: scale(1.15); }
+
+/* 행 구분 */
 .modal-row-group {
-  padding: 15px 0; border-top: 1px solid #f2f2f7; display: flex; flex-direction: column; gap: 10px;
+  padding: 15px 0; border-top: 1px solid #f2f2f7;
+  display: flex; flex-direction: column; gap: 10px;
 }
 
 .settings-row {
@@ -124,31 +192,32 @@ body {
   font-size: 16px; font-weight: 600; color: #333;
 }
 
-/* 24시간 셀렉트 & 인풋들 */
-select, input[type="date"], input[type="time"] {
-  padding: 10px; border-radius: 12px; border: 1px solid #ddd;
-  background: #f8f8fa; font-size: 14px; outline: none;
-}
-
+/* 24시간 선택기 */
 .time-picker-24h-grid {
   display: flex; gap: 10px; background: #f2f2f7; padding: 15px; border-radius: 18px;
 }
+.custom-select-group select {
+  padding: 8px; border-radius: 10px; border: 1px solid #ddd;
+  background: #fff; font-weight: 600; outline: none;
+}
 
-/* 컬러피커 */
-.color-picker-wrapper { text-align: center; }
-.color-label { font-size: 11px; color: #888; display: block; margin-bottom: 6px; }
-.color-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
-.color-dot.active { border-color: #333; transform: scale(1.2); }
+/* 반복 종료 UI (전환형) */
+.until-container { margin-top: 5px; background: #f8f9fa; padding: 15px; border-radius: 18px; }
+.no-limit-btn {
+  padding: 10px; border-radius: 12px; border: 1.5px solid #007aff;
+  background: #fff; color: #007aff; font-weight: 700; cursor: pointer; width: 100%;
+}
+.until-input-wrapper { display: flex; align-items: center; gap: 10px; width: 100%; }
+.until-input-wrapper input[type="date"] {
+  flex: 1; padding: 8px; border-radius: 10px; border: 1px solid #ddd; outline: none;
+}
+.reset-until-btn {
+  background: #eee; border: none; width: 30px; height: 30px; border-radius: 50%;
+  cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+}
 
 /* 하단 버튼 */
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
 .btn-save { background: var(--primary-color); color: #fff; border: none; padding: 14px 32px; border-radius: 16px; font-weight: 700; cursor: pointer; }
 .btn-cancel { background: #eee; color: #555; border: none; padding: 14px 24px; border-radius: 16px; font-weight: 700; cursor: pointer; }
 .btn-delete-trigger { margin-right: auto; background: #fff1f0; color: #ff4d4f; border: none; padding: 14px 20px; border-radius: 16px; font-weight: 700; }
-
-/* 알림 칩 */
-.chip-item {
-  padding: 8px 16px; border-radius: 20px; border: 1px solid #eee; background: #fff;
-  font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.chip-item.selected { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
