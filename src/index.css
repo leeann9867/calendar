@@ -3,160 +3,158 @@
   --sat-blue: #007aff;
   --border: #d2d2d7;
   --bg-gray: #f2f2f7;
+  --apple-blue: #007aff;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, "Helvetica Neue", sans-serif; }
 
-/* 1. 배경 및 중앙 정렬 (꽉 차게) */
 body {
   background-color: #f5f5f7;
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  padding: 0; /* 여백 제거하여 더 넓게 */
+  padding: 20px;
 }
 
-/* 2. 메인 컨테이너: 데스크톱에서 시원하게 100% 활용 */
+/* 캘린더 메인 컨테이너 */
 .calendar-main-wrapper {
   width: 100%;
-  max-width: 1600px; /* 훨씬 더 넓게 확장 */
-  margin: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
   background: white;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 18px; /* 더 부드러운 라운드 */
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+  overflow: hidden;
 }
 
-/* 3. 헤더 (날짜 이동 버튼 등) */
+/* 1. 헤더 디자인 복구 */
 .calendar-header {
-  padding: 25px 30px;
+  padding: 25px 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  background: white;
 }
+.calendar-header h2 { font-size: 1.5rem; font-weight: 700; color: #1d1d1f; }
+.header-nav-btns button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+  font-weight: 600;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+.header-nav-btns button:hover { background: var(--bg-gray); }
 
-/* 4. 요일 헤더 (토/일 색상 복구) */
+/* 2. 요일 헤더 디자인 복구 */
 .weekdays-grid-header {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   background: #fbfbfd;
+  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
-.day-header {
-  padding: 15px 0;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: #86868b;
-}
+.day-header { padding: 16px 0; text-align: center; font-size: 13px; font-weight: 600; color: #86868b; text-transform: uppercase; letter-spacing: 0.5px; }
 .day-header:nth-child(1) { color: var(--sun-red); }
 .day-header:nth-child(7) { color: var(--sat-blue); }
 
-/* 5. 캘린더 본문: 좁지 않게 flex-grow 적용 */
-.calendar-content-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
+/* 3. 캘린더 바디 & 날짜 칸 */
 .calendar-row-container {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  min-height: 150px; /* 기본 높이를 더 시원하게 확보 */
+  min-height: 160px; /* 데스크톱 최적 높이 */
   position: relative;
   border-bottom: 1px solid var(--bg-gray);
 }
-
-.day-cell {
-  border-right: 1px solid var(--bg-gray);
-  padding: 15px;
-  min-height: 100%;
-}
+.day-cell { border-right: 1px solid var(--bg-gray); padding: 15px; transition: background 0.2s; }
 .day-cell:last-child { border-right: none; }
-
-.day-label {
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin-bottom: 10px;
-  display: inline-block;
-}
+.day-label { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; display: inline-block; }
 
 /* 토/일 날짜 색상 복구 */
-.day-cell:nth-child(7n+1) .day-label { color: var(--sun-red); }
-.day-cell:nth-child(7n) .day-label { color: var(--sat-blue); }
+.day-cell:nth-child(1) .day-label { color: var(--sun-red); }
+.day-cell:nth-child(7) .day-label { color: var(--sat-blue); }
 
 .other-month { background-color: #fafafa; }
 .other-month .day-label { color: #d2d2d7 !important; }
 .today-cell { background-color: #fff9db; }
 
-/* 6. 이벤트 레이어 (가로 연결) */
-.event-overlay-layer {
-  position: absolute;
-  top: 45px; /* 날짜 숫자 아래 여유있게 배치 */
-  left: 0; right: 0; bottom: 0;
-  pointer-events: none;
-}
-
+/* 4. 이벤트 바 디자인 (가로 연결형) */
+.event-overlay-layer { position: absolute; top: 48px; left: 0; right: 0; pointer-events: none; }
 .event-bar {
   position: absolute;
   height: 28px;
   line-height: 28px;
-  font-size: 13px;
+  font-size: 12.5px;
   color: white;
-  padding: 0 12px;
+  padding: 0 10px;
   pointer-events: auto;
   cursor: pointer;
   z-index: 10;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
-.start-round { border-radius: 6px 0 0 6px; margin-left: 5px; }
-.end-round { border-radius: 0 6px 6px 0; margin-right: 5px; }
+.start-round { border-radius: 6px 0 0 6px; margin-left: 4px; }
+.end-round { border-radius: 0 6px 6px 0; margin-right: 4px; }
 
-/* 컬러셋 */
+/* 컬러셋 복구 */
 .blue { background-color: #007aff; }
 .red { background-color: #ff3b30; }
 .green { background-color: #34c759; }
 .yellow { background-color: #ffcc00; color: #1d1d1f; }
 .purple { background-color: #af52de; }
 
-/* 7. 모달 UI 복구 (깨짐 방지 및 깔끔한 애플 스타일) */
+/* 5. 모달 디자인 복구 (깔끔한 애플 스타일) */
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.3); backdrop-filter: blur(10px);
-  display: flex; align-items: center; justify-content: center; z-index: 9999;
+  display: flex; align-items: center; justify-content: center; z-index: 5000;
 }
 .modal-content {
   background: white;
-  width: 450px; /* 너무 좁지 않게 고정폭 */
-  padding: 30px;
+  width: 90%;
+  max-width: 500px; /* 가로폭 적정 수준으로 조정 */
+  padding: 35px;
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
 }
-
 .input-title-main {
   width: 100%;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 800;
   border: none;
   border-bottom: 2px solid var(--bg-gray);
-  padding: 10px 0;
-  margin-bottom: 20px;
+  padding: 12px 0;
+  margin-bottom: 25px;
   outline: none;
+  color: #1d1d1f;
 }
-
 .time-split-picker {
   display: flex; align-items: center; justify-content: space-between;
-  background: var(--bg-gray); padding: 15px; border-radius: 16px; margin: 20px 0;
+  background: var(--bg-gray); padding: 18px; border-radius: 14px; margin: 20px 0;
 }
-.select-row { display: flex; align-items: center; background: white; padding: 6px 12px; border-radius: 10px; }
-.select-row select { border: none; font-size: 1.2rem; font-weight: 700; color: #007aff; outline: none; appearance: none; cursor: pointer; background: transparent; }
-.time-colon { color: #007aff; font-weight: 800; margin: 0 5px; font-size: 1.2rem; }
+.select-row { display: flex; align-items: center; background: white; padding: 8px 14px; border-radius: 10px; }
+.select-row select { border: none; font-size: 1.2rem; font-weight: 700; color: var(--apple-blue); outline: none; appearance: none; cursor: pointer; }
 
-/* 8. 푸터 */
-.calendar-footer { padding: 20px 30px; text-align: right; background: #fbfbfd; border-top: 1px solid var(--border); }
+/* 6. 푸터 디자인 복구 */
+.calendar-footer {
+  padding: 20px 40px;
+  text-align: right;
+  background: #fbfbfd;
+  border-top: 1px solid var(--border);
+}
+.footer-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 10px;
+}
+.btn-save { background: var(--apple-blue); color: white; }
+.btn-cancel { background: #e5e5ea; color: #1d1d1f; }

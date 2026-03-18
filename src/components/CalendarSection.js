@@ -16,29 +16,25 @@ function CalendarSection({ calendarData, getEventsForDate, modalConfig, openModa
             events.sort((a, b) => a.date.localeCompare(b.date)).forEach(ev => {
                 if (!seenInWeek.has(ev.id)) {
                     seenInWeek.add(ev.id);
-                    let startIdx = week.findIndex(d => formatDate(d.date) === ev.date);
-                    if (startIdx === -1) startIdx = 0;
-                    let endIdx = week.findIndex(d => formatDate(d.date) === (ev.endDate || ev.date));
-                    if (endIdx === -1) endIdx = 6;
-                    weekEvents.push({ ...ev, startIdx, endIdx, refDate: formatDate(day.date) });
+                    let sIdx = week.findIndex(d => formatDate(d.date) === ev.date);
+                    if (sIdx === -1) sIdx = 0;
+                    let eIdx = week.findIndex(d => formatDate(d.date) === (ev.endDate || ev.date));
+                    if (eIdx === -1) eIdx = 6;
+                    weekEvents.push({ ...ev, sIdx, eIdx, refDate: formatDate(day.date) });
                 }
             });
         });
 
         return weekEvents.map((ev, i) => {
-            const isActualStart = ev.date === formatDate(week[ev.startIdx].date);
-            const isActualEnd = (ev.endDate || ev.date) === formatDate(week[ev.endIdx].date);
-            const left = (ev.startIdx * 14.2857) + "%";
-            const width = ((ev.endIdx - ev.startIdx + 1) * 14.2857) + "%";
+            const isStart = ev.date === formatDate(week[ev.sIdx].date);
+            const isEnd = (ev.endDate || ev.date) === formatDate(week[ev.eIdx].date);
+            const left = (ev.sIdx * (100 / 7)) + "%";
+            const width = ((ev.eIdx - ev.sIdx + 1) * (100 / 7)) + "%";
 
             return (
                 <div key={`${ev.id}-${i}`}
-                     className={`event-bar ${ev.color} ${isActualStart ? 'start-round' : ''} ${isActualEnd ? 'end-round' : ''}`}
-                     style={{
-                         left: left,
-                         width: width,
-                         top: `${i * 35}px`, // 이벤트 바 사이 간격을 시원하게 조정
-                     }}
+                     className={`event-bar ${ev.color} ${isStart ? 'start-round' : ''} ${isEnd ? 'end-round' : ''}`}
+                     style={{ left, width, top: `${i * 34}px` }}
                      onClick={(e) => { e.stopPropagation(); openModal(ev.refDate, ev); }}>
                     {ev.title || '(제목 없음)'}
                 </div>
@@ -60,9 +56,7 @@ function CalendarSection({ calendarData, getEventsForDate, modalConfig, openModa
                                 <span className="day-label">{item.date.getDate()}</span>
                             </div>
                         ))}
-                        <div className="event-overlay-layer">
-                            {renderRowEvents(week)}
-                        </div>
+                        <div className="event-overlay-layer">{renderRowEvents(week)}</div>
                     </div>
                 ))}
             </div>
