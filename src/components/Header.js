@@ -1,15 +1,9 @@
 import React from 'react';
-import { useCalendar } from '../hooks/useCalendar';
 
 /**
- * 상단 헤더 컴포넌트
- * 월 이동 및 오늘 이동 기능 담당
+ * 전달받은 props를 사용하여 화면을 갱신함
  */
-function Header() {
-    // 훅에서 직접 상태와 핸들러를 가져와 undefined 에러 방지
-    const { currentDate, handleMoveMonth, handleGoToday } = useCalendar();
-
-    // currentDate가 로드되기 전 예외 처리
+function Header({ currentDate, handleMoveMonth, handleGoToday }) {
     if (!currentDate) return null;
 
     const year = currentDate.getFullYear();
@@ -17,12 +11,10 @@ function Header() {
 
     return (
         <header className="calendar-header">
-            <div className="current-month">
-                {year}년 {month}월
-            </div>
+            <div className="current-month">{year}년 {month}월</div>
             <div className="nav-btns">
                 <button onClick={() => handleMoveMonth(-1)}>&lt;</button>
-                <button onClick={handleGoToday}>오늘</button>
+                <button onClick={handleGoToday} className="today-btn">오늘</button>
                 <button onClick={() => handleMoveMonth(1)}>&gt;</button>
             </div>
         </header>

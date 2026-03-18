@@ -1,48 +1,34 @@
 import React from 'react';
 import CalendarSection from './CalendarSection';
-import EventModal from './EventModal';
-import { useCalendar } from '../hooks/useCalendar';
 import { useNotification } from '../hooks/useNotification';
 
 /**
- * 메인 비즈니스 영역
- * 데이터 로직 연결 및 모달 팝업 제어
+ * 메인 컨텐츠 영역:
+ * 부모(App.js)로부터 전달받은 calendar 상태를 사용하고,
+ * 알림 서비스(useNotification)를 가동합니다.
  */
-function Main() {
-    const {
-        currentDate, events, modalConfig,
-        openModal, closeModal, handleSaveEvent, handleDeleteEvent
-    } = useCalendar();
+function Main({ calendar }) {
+    // 1. 알림 엔진 가동 (일정 변화를 감시하여 브라우저 알림 발생)
+    useNotification(calendar.events);
 
-    // 알림 서비스 실행
-    useNotification(events);
+    // 2. 만약 calendar 객체가 아직 로드되지 않았다면 안전하게 처리
+    if (!calendar) return null;
 
     return (
-        <main className="content-container">
+        <main className="main-content-area">
+            {/* 달력 그리드 섹션에 모든 상태와 제어 함수 전달 */}
             <CalendarSection
-                currentDate={currentDate}
-                events={events}
-                onDateClick={(date) => openModal(date)}
-                onEventClick={(date, event) => openModal(date, event)}
+                currentDate={calendar.currentDate}
+                events={calendar.events}
+                modalConfig={calendar.modalConfig}
+                openModal={calendar.openModal}
+                closeModal={calendar.closeModal}
+                onSave={calendar.handleSaveEvent}
+                onDelete={calendar.handleDeleteEvent}
             />
-
-            {/* 모달 호출부: 정의되지 않은 에러 방지를 위해 하단 index.js 기반 호출 */}
-            {modalConfig.isOpen && (
-                <EventModal
-                    initData={modalConfig.event || {
-                        date: modalConfig.date,
-                        time: "09:00",
-                        endTime: "10:00",
-                        isNotificationEnabled: true,
-                        reminders: [10]
-                    }}
-                    onSave={handleSaveEvent}
-                    onDelete={handleDeleteEvent}
-                    onClose={closeModal}
-                />
-            )}
         </main>
     );
 }
 
+// 👈 이 부분이 빠져있었을 겁니다! 반드시 추가해주세요.
 export default Main;

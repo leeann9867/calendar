@@ -1,361 +1,154 @@
-/* =========================================
-   [2026 최종 통합 디자인]
-   프리미엄 UI + 체크 표시 디테일 + 넉넉한 레이아웃
-   ========================================= */
-
+/* --- 1. 전역 변수 및 기초 초기화 --- */
 :root {
-  --bg-main: #ffffff;
-  --bg-sub: #f8f9fa;
-  --text-main: #3c4043;
-  --text-dim: #5f6368;
-  --border-color: #dadce0;
-  --primary-color: #1a73e8;
-  --primary-hover: #185abc;
-  --today-bg: #e8f0fe;
-  --modal-bg: #ffffff;
-  --google-red: #d93025;
-  --shadow-elevated: 0 8px 10px 1px rgba(0,0,0,0.14),
-  0 3px 14px 2px rgba(0,0,0,0.12),
-  0 5px 5px -3px rgba(0,0,0,0.2);
-
-  --ev-blue: #1a73e8;
-  --ev-red: #d93025;
-  --ev-green: #0b8043;
-  --ev-yellow: #f4b400;
-  --ev-purple: #8e24aa;
-  --ev-default: #5f6368;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-main: #202124;
-    --bg-sub: #2d2e31;
-    --text-main: #e8eaed;
-    --text-dim: #9aa0a6;
-    --border-color: #3c4043;
-    --modal-bg: #2d2e31;
-    --today-bg: #3c4043;
-  }
+  --primary-color: #007aff;    /* 삼성 블루 */
+  --sunday-color: #ff5252;     /* 일요일 레드 */
+  --saturday-color: #007aff;   /* 토요일 블루 */
+  --bg-gray: #f2f2f7;
+  --border-color: #efeff4;
+  --text-main: #1c1c1e;
+  --text-muted: #8e8e93;
+  --modal-bg: rgba(0, 0, 0, 0.4);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background: var(--bg-main);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #ffffff;
   color: var(--text-main);
-  overflow: hidden;
+  overflow: hidden; /* 앱 전체 스크롤 방지 */
 }
 
-.wrapper { display: flex; flex-direction: column; height: 100vh; }
-
-/* Header */
-.site-header {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  padding: 0 40px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-main);
+/* --- 2. 앱 레이아웃 (App.js) --- */
+.wrapper {
+  display: flex; flex-direction: column;
+  height: 100vh; width: 100vw;
 }
-.header-container { width: 100%; display: flex; align-items: center; justify-content: space-between; }
-.header-left { display: flex; align-items: center; gap: 12px; }
-.header-left h1 { font-size: 22px; font-weight: 400; margin-right: 20px; }
-.nav-controls { display: flex; align-items: center; gap: 4px; }
-.current-view-text { font-size: 18px; font-weight: 400; margin-left: 12px; }
-.nav-btn { height: 36px; padding: 0 16px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-main); cursor: pointer; font-weight: 500; }
-.nav-btn:hover { background: var(--bg-sub); }
 
-/* Main Calendar */
-main { flex: 1; padding: 20px 40px; display: flex; flex-direction: column; overflow: hidden; }
-.calendar-wrapper { width: 100%; height: 100%; display: flex; flex-direction: column; }
+.calendar-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 15px 25px; border-bottom: 1px solid var(--border-color);
+  background: #fff;
+}
+
+.current-month { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+
+.nav-btns { display: flex; gap: 10px; }
+.nav-btns button {
+  padding: 8px 16px; border: 1px solid #ddd; background: #fff;
+  border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.today-btn { color: var(--primary-color); border-color: var(--primary-color) !important; }
+
+/* --- 3. 달력 그리드 (CalendarSection.js) --- */
+.main-content-area { flex: 1; display: flex; flex-direction: column; }
+
 .calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  display: grid; grid-template-columns: repeat(7, 1fr);
   grid-template-rows: 40px repeat(6, 1fr);
-  flex: 1;
-  background: var(--border-color);
-  gap: 1px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-.day-header { background: var(--bg-sub); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; }
-.day-column { background: var(--bg-main); position: relative; padding: 4px; }
-.day-column:hover { background: #f1f3f4; }
-.day-num { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 12px; margin: 0 auto 4px auto; }
-.today .day-num { background: var(--primary-color); color: white; border-radius: 50%; }
-
-/* Event Bar */
-.event-bar { position: absolute; height: 22px; color: white; font-size: 12px; padding: 0 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; z-index: 10; }
-.ev-blue { background-color: var(--ev-blue); }
-.ev-red { background-color: var(--ev-red); }
-.ev-green { background-color: var(--ev-green); }
-.ev-yellow { background-color: var(--ev-yellow); color: #3c4043; }
-.ev-purple { background-color: var(--ev-purple); }
-.ev-default { background-color: var(--ev-default); }
-
-/* Modal & Checkmark */
-.modal-overlay { position: fixed; inset: 0; background: rgba(60, 64, 67, 0.3); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(1px); }
-.modal { background: var(--modal-bg);   max-height: 85vh; overflow-y: auto; width: 448px; padding: 24px; border-radius: 8px; box-shadow: var(--shadow-elevated); display: flex; flex-direction: column; gap: 20px; animation: modalIn 0.15s ease-out; }
-@keyframes modalIn { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-.input-title { width: 100%; border: none; border-bottom: 2px solid var(--border-color); padding: 8px 0; font-size: 22px; outline: none; background: transparent; transition: border-color 0.2s; }
-.input-title:focus { border-color: var(--primary-color); }
-
-.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
-.form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; }
-.custom-repeat-box { background: var(--bg-sub); padding: 12px; border-radius: 8px; display: flex; gap: 12px; }
-
-/* 컬러 피커와 체크 표시 ✓ */
-.color-picker { display: flex; gap: 10px; padding: 8px 0; }
-.color-dot {
-  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
-  position: relative; display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s;
-}
-.color-dot:hover { transform: scale(1.15); }
-.color-dot.active { transform: scale(1.1); box-shadow: 0 0 0 2px var(--bg-main), 0 0 0 4px var(--text-main); }
-.color-dot::after {
-  content: '✓'; color: white; font-size: 14px; font-weight: bold; display: none;
-}
-.color-dot.active::after { display: block; }
-.color-dot.ev-yellow::after { color: #3c4043; }
-
-/* Buttons */
-.btn-group { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-.btn-save { background: var(--primary-color); color: white; border: none; padding: 10px 24px; border-radius: 4px; font-weight: 600; cursor: pointer; }
-.btn-save:hover { background: var(--primary-hover); }
-.btn-delete { background: transparent; border: none; color: var(--google-red); font-weight: 600; cursor: pointer; }
-.btn-close { background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 10px; }
-
-/* Footer */
-.site-footer { height: 48px; border-top: 1px solid var(--border-color); display: flex; justify-content: center; align-items: center; padding: 0 40px; font-size: 12px; color: var(--text-dim); }
-.footer-container { width: 100%; display: flex; justify-content: space-between; }
-
-/* 알림 설정 스타일 (중복 제거 통합) */
-.reminder-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.custom-checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.2s;
-}
-.custom-checkbox-item:hover { background: var(--bg-sub); }
-
-.radio-circle {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border-color);
-  border-radius: 50%;
-  position: relative;
-  transition: border-color 0.2s;
-}
-.custom-checkbox-item.active .radio-circle {
-  border-color: var(--primary-color);
-}
-.custom-checkbox-item.active .radio-circle::after {
-  content: '';
-  width: 10px;
-  height: 10px;
-  background: var(--primary-color);
-  border-radius: 50%;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  height: 100%; border-top: 1px solid var(--border-color);
 }
 
-.reminder-tag {
-  display: inline-flex;
-  align-items: center;
-  background: var(--today-bg);
-  color: var(--primary-color);
-  padding: 4px 10px;
-  border-radius: 15px;
-  font-size: 12px;
-  margin-right: 5px;
-  margin-top: 5px;
-}
-.reminder-tag b { margin-left: 6px; cursor: pointer; }
-
-.btn-exclude-toggle {
-  width: 100%;
-  padding: 10px;
-  border: 1px dashed var(--border-color);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-.btn-exclude-toggle.active {
-  background: #fff0f0;
-  border-color: var(--google-red);
-  color: var(--google-red);
+.day-header {
+  display: flex; justify-content: center; align-items: center;
+  font-size: 13px; font-weight: 700; color: var(--text-muted);
+  border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);
 }
 
-/* 다른 달 날짜 반투명 처리 */
-.day-column.other-month {
-  opacity: 0.4; /* 회색조 및 반투명 */
-  background: var(--bg-sub);
+.day-column {
+  position: relative; border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color); padding: 8px; cursor: pointer;
 }
 
-/* 1. 모달 내부가 길어지면 무조건 스크롤이 생기게 함 (가장 중요) */
-.modal {
-  max-height: 85vh !important; /* 화면 높이의 85%만 차지 */
-  overflow-y: auto !important; /* 넘치면 스크롤 생성 */
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 15px !important;
+.day-column:hover { background-color: #f9f9f9; }
+
+/* 주말 색상 처리 (토:파랑 / 일:빨강) */
+.calendar-grid .day-header:nth-child(1),
+.calendar-grid .day-column:nth-child(7n+8) .day-num { color: var(--sunday-color) !important; }
+
+.calendar-grid .day-header:nth-child(7),
+.calendar-grid .day-column:nth-child(7n+14) .day-num { color: var(--saturday-color) !important; }
+
+.day-num {
+  display: inline-block; width: 28px; height: 28px; line-height: 28px;
+  text-align: center; font-size: 15px; font-weight: 500;
 }
 
-/* 2. 알림 설정 영역이 다른 스타일 때문에 숨겨지지 않도록 강제 노출 */
-.reminder-section {
-  display: block !important;
-  border-top: 1px solid #eee !important;
-  padding-top: 15px !important;
-  margin-top: 10px !important;
-  visibility: visible !important;
+/* 오늘 날짜 표시 */
+.day-column.today .day-num {
+  background-color: var(--primary-color); color: #fff !important; border-radius: 50%;
 }
 
-/* 3. 체크박스 아이템들이 가로로 잘 배치되게 함 */
-.reminder-grid {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: 10px !important;
+/* 다른 달 날짜 */
+.day-column.other-month { background-color: #fafafa; }
+.day-column.other-month .day-num { color: #d1d1d6 !important; }
+
+/* --- 4. 일정 바 (Event Bars) --- */
+.event-container { display: flex; flex-direction: column; gap: 2px; margin-top: 25px; }
+.event-bar {
+  height: 22px; line-height: 22px; padding: 0 6px; font-size: 11px;
+  font-weight: 600; color: #fff; border-radius: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.event-bar.blue { background-color: #007aff; }
+.event-bar.red { background-color: #ff5252; }
+.event-bar.green { background-color: #34c75 green; }
+
+/* --- 5. 모달 (EventModal) 디자인 --- */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: var(--modal-bg); display: flex; justify-content: center; align-items: center;
+  z-index: 9999; backdrop-filter: blur(5px);
 }
 
-/* 4. 다른 달(이전/다음달) 회색 처리 (요청하신 부분) */
-.day-column.other-month {
-  background-color: #f8f9fa !important; /* 아주 연한 회색 */
-  opacity: 0.6 !important;
-}
-.day-column.other-month .day-num {
-  color: #999 !important;
+.modal-content {
+  background: #fff; width: 420px; border-radius: 30px; padding: 30px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 15px;
 }
 
-/* 3. 체크박스 아이템 시각화 */
-.custom-checkbox-item {
-  display: flex !important;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background: var(--bg-sub); /* 배경색을 줘서 영역 확인 */
-  border-radius: 6px;
-  cursor: pointer;
+.modal-header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+
+.input-title-main {
+  width: 75%; border: none; border-bottom: 2.5px solid #eee;
+  font-size: 26px; font-weight: 800; padding: 10px 0; outline: none;
+}
+.input-title-main:focus { border-bottom-color: var(--primary-color); }
+
+/* 모달 내부 행 설정 */
+.modal-row-group {
+  padding: 15px 0; border-top: 1px solid #f2f2f7; display: flex; flex-direction: column; gap: 10px;
 }
 
-.reminder-container {
-  width: 100%;
-  margin-bottom: 20px;
+.settings-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 16px; font-weight: 600; color: #333;
 }
 
-.section-label {
-  font-size: 13px;
-  color: #666;
-  margin-left: 5px;
-  margin-bottom: 8px;
-  display: block;
+/* 24시간 셀렉트 & 인풋들 */
+select, input[type="date"], input[type="time"] {
+  padding: 10px; border-radius: 12px; border: 1px solid #ddd;
+  background: #f8f8fa; font-size: 14px; outline: none;
 }
 
-.reminder-list-card {
-  background: #ffffff;
-  border: 1px solid #f0f0f0;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+.time-picker-24h-grid {
+  display: flex; gap: 10px; background: #f2f2f7; padding: 15px; border-radius: 18px;
 }
 
-.reminder-item {
-  display: flex;
-  align-items: center;
-  padding: 14px 16px;
-  border-bottom: 1px solid #f8f8f8;
-  cursor: pointer;
-  transition: background 0.2s;
-}
+/* 컬러피커 */
+.color-picker-wrapper { text-align: center; }
+.color-label { font-size: 11px; color: #888; display: block; margin-bottom: 6px; }
+.color-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.color-dot.active { border-color: #333; transform: scale(1.2); }
 
-.reminder-item:last-child {
-  border-bottom: none;
-}
+/* 하단 버튼 */
+.modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.btn-save { background: var(--primary-color); color: #fff; border: none; padding: 14px 32px; border-radius: 16px; font-weight: 700; cursor: pointer; }
+.btn-cancel { background: #eee; color: #555; border: none; padding: 14px 24px; border-radius: 16px; font-weight: 700; cursor: pointer; }
+.btn-delete-trigger { margin-right: auto; background: #fff1f0; color: #ff4d4f; border: none; padding: 14px 20px; border-radius: 16px; font-weight: 700; }
 
-.reminder-item:active {
-  background: #f0f4ff;
+/* 알림 칩 */
+.chip-item {
+  padding: 8px 16px; border-radius: 20px; border: 1px solid #eee; background: #fff;
+  font-size: 13px; font-weight: 600; cursor: pointer;
 }
-
-.check-circle {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #ddd;
-  border-radius: 50%;
-  margin-right: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.active .check-circle {
-  background: #3b82f6;
-  border-color: #3b82f6;
-}
-
-.check-mark {
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.active .item-label {
-  color: #3b82f6;
-  font-weight: 600;
-}
-
-/* 직접 설정 관련 */
-.custom-add-btn {
-  color: #3b82f6;
-}
-
-.plus-icon {
-  margin-right: 14px;
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.custom-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 15px;
-  background: transparent;
-}
-
-.confirm-mini-btn {
-  background: #3b82f6;
-  color: white;
-  border: none;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.toggle-switch-dummy {
-  width: 36px;
-  height: 20px;
-  background: #eee;
-  border-radius: 10px;
-}
+.chip-item.selected { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }

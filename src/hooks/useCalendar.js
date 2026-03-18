@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { storage } from '../utils/helpers';
 
-/**
- * 전역적인 캘린더 상태 관리를 위한 커스텀 훅
- */
 export function useCalendar() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState(() => storage.load());
@@ -14,18 +11,39 @@ export function useCalendar() {
     }, [events]);
 
     const handleMoveMonth = (offset) => {
-        setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
+        setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
     };
 
     const handleGoToday = () => setCurrentDate(new Date());
 
-    const openModal = (date, event = null) => setModalConfig({ isOpen: true, date, event });
+    /**
+     * 모달 열기 - 기본값을 '하루 종일'로 설정
+     */
+    const openModal = (date, event = null) => {
+        setModalConfig({
+            isOpen: true,
+            date: date,
+            event: event || {
+                date: date,
+                title: '',
+                isAllDay: true,
+                time: "09:00",
+                endTime: "10:00",
+                repeat: 'none',
+                until: date, // 기본 종료일은 당일
+                isNotificationEnabled: true,
+                reminders: [10],
+                color: 'blue'
+            }
+        });
+    };
+
     const closeModal = () => setModalConfig({ isOpen: false, event: null, date: null });
 
     const handleSaveEvent = (data) => {
         setEvents(prev => {
             const isUpdate = prev.find(e => e.id === data.id);
-            return isUpdate ? prev.map(e => e.id === data.id ? data : e) : [...prev, { ...data, id: Date.now() }];
+            return isUpdate ? prev.map(e => (e.id === data.id ? data : e)) : [...prev, { ...data, id: Date.now() }];
         });
         closeModal();
     };
