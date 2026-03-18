@@ -2,81 +2,71 @@ import React from 'react';
 import { formatDate } from '../utils/helpers';
 import EventModal from './EventModal';
 
-/**
- * 달력 그리드 렌더링 및 날짜 색상/이벤트 바 표시
- */
-function CalendarSection({
-                             currentDate,
-                             calendarData = [], // useCalendar에서 생성한 42칸 데이터
-                             getEventsForDate,   // 반복 일정까지 계산된 필터 함수
-                             modalConfig,
-                             openModal,
-                             closeModal,
-                             onSave,
-                             onDelete
-                         }) {
-    // 1. 요일 헤더
+function CalendarSection({ calendarData, getEventsForDate, modalConfig, openModal, closeModal, onSave, onDelete }) {
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const rows = [];
+    for (let i = 0; i < calendarData.length; i += 7) rows.push(calendarData.slice(i, i + 7));
+
+    const renderRowEvents = (week) => {
+        const weekEvents = [];
+        const seenInWeek = new Set();
+
+        week.forEach((day) => {
+            const events = getEventsForDate(day.date);
+            events.sort((a, b) => a.date.localeCompare(b.date)).forEach(ev => {
+                if (!seenInWeek.has(ev.id)) {
+                    seenInWeek.add(ev.id);
+                    let startIdx = week.findIndex(d => formatDate(d.date) === ev.date);
+                    if (startIdx === -1) startIdx = 0;
+                    let endIdx = week.findIndex(d => formatDate(d.date) === (ev.endDate || ev.date));
+                    if (endIdx === -1) endIdx = 6;
+                    weekEvents.push({ ...ev, startIdx, endIdx, refDate: formatDate(day.date) });
+                }
+            });
+        });
+
+        return weekEvents.map((ev, i) => {
+            const isActualStart = ev.date === formatDate(week[ev.startIdx].date);
+            const isActualEnd = (ev.endDate || ev.date) === formatDate(week[ev.endIdx].date);
+            const left = (ev.startIdx * 14.2857) + "%";
+            const width = ((ev.endIdx - ev.startIdx + 1) * 14.2857) + "%";
+
+            return (
+                <div key={`${ev.id}-${i}`}
+                     className={`event-bar ${ev.color} ${isActualStart ? 'start-round' : ''} ${isActualEnd ? 'end-round' : ''}`}
+                     style={{
+                         left: left,
+                         width: width,
+                         top: `${i * 35}px`, // 이벤트 바 사이 간격을 시원하게 조정
+                     }}
+                     onClick={(e) => { e.stopPropagation(); openModal(ev.refDate, ev); }}>
+                    {ev.title || '(제목 없음)'}
+                </div>
+            );
+        });
+    };
 
     return (
-        <div className="calendar-grid">
-            {/* 요일 헤더 */}
-            {weekdays.map(d => (
-                <div key={d} className="day-header">{d}</div>
-            ))}
-
-            {/* 날짜 셀 (useCalendar에서 계산된 calendarData 사용) */}
-            {calendarData.map((item, i) => {
-                // useCalendar의 로직을 사용하여 해당 날짜의 이벤트 가져오기
-                const dayEvents = getEventsForDate ? getEventsForDate(item.date) : [];
-                const dateStr = formatDate(item.date);
-                const isToday = formatDate(new Date()) === dateStr;
-                const isCurrentMonth = item.isCurrentMonth;
-
-                return (
-                    <div
-                        key={i}
-                        className={`day-column ${!isCurrentMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}`}
-                        onClick={() => openModal(dateStr)}
-                    >
-                        <span className="day-num">{item.date.getDate()}</span>
-
-                        {/* 일정 바 렌더링 */}
-                        <div className="event-container">
-                            {dayEvents.map(ev => (
-                                <div
-                                    key={ev.id}
-                                    className={`event-bar ${ev.color || 'blue'}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        openModal(dateStr, ev);
-                                    }}
-                                >
-                                    {ev.title || '(제목 없음)'}
-                                </div>
-                            ))}
+        <div className="calendar-main-wrapper">
+            <div className="weekdays-grid-header">
+                {weekdays.map(d => <div key={d} className="day-header">{d}</div>)}
+            </div>
+            <div className="calendar-content-body">
+                {rows.map((week, rIdx) => (
+                    <div key={rIdx} className="calendar-row-container">
+                        {week.map((item, i) => (
+                            <div key={i} className={`day-cell ${!item.isCurrentMonth ? 'other-month' : ''} ${formatDate(new Date()) === formatDate(item.date) ? 'today-cell' : ''}`}
+                                 onClick={() => openModal(formatDate(item.date))}>
+                                <span className="day-label">{item.date.getDate()}</span>
+                            </div>
+                        ))}
+                        <div className="event-overlay-layer">
+                            {renderRowEvents(week)}
                         </div>
                     </div>
-                );
-            })}
-
-            {/* 모달 렌더링: modalConfig가 존재하고 isOpen이 true일 때만 */}
-            {modalConfig && modalConfig.isOpen && (
-                <EventModal
-                    initData={modalConfig.event || {
-                        date: modalConfig.date,
-                        title: '',
-                        color: 'blue',
-                        repeat: 'none',
-                        until: null,
-                        time: "09:00",
-                        endTime: "10:00"
-                    }}
-                    onSave={onSave}
-                    onDelete={onDelete}
-                    onClose={closeModal}
-                />
-            )}
+                ))}
+            </div>
+            {modalConfig.isOpen && <EventModal initData={modalConfig.event} onSave={onSave} onDelete={onDelete} onClose={closeModal} />}
         </div>
     );
 }
