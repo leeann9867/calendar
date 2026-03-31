@@ -1,10 +1,12 @@
 import React from 'react';
 
 function Footer() {
+    const currentYear = new Date().getFullYear();
+
     return (
-        <footer className="site-footer">
-            <p>&copy; 2026 Portfolio Calendar | Designed for Web App</p>
-        </footer>
+        <div className="calendar-footer">
+            <div>© {currentYear} My Calendar App. All rights reserved.</div>
+        </div>
     );
 }
 

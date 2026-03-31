@@ -1,160 +1,286 @@
+/* =========================================
+   0. 테마 변수 (라이트/다크 모드)
+========================================= */
 :root {
+  --bg-body: #f5f5f7;
+  --bg-card: #ffffff;
+  --border-color: #e5e5ea;
+  --text-main: #1d1d1f;
+  --text-muted: #86868b;
   --sun-red: #ff3b30;
   --sat-blue: #007aff;
-  --border: #d2d2d7;
-  --bg-gray: #f2f2f7;
-  --apple-blue: #007aff;
+  --event-blue: #f0f4ff;
+  --event-blue-text: #0055ff;
+  --shadow: rgba(0, 0, 0, 0.04);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, "Helvetica Neue", sans-serif; }
+[data-theme='dark'] {
+  --bg-body: #1c1c1e;
+  --bg-card: #2c2c2e;
+  --border-color: #3a3a3c;
+  --text-main: #f5f5f7;
+  --text-muted: #aeaeb2;
+  --sun-red: #ff453a;
+  --sat-blue: #0a84ff;
+  --event-blue: #3a3a3c;
+  --event-blue-text: #64d2ff;
+  --shadow: rgba(0, 0, 0, 0.2);
+}
+
+/* =========================================
+   1. 초기화 및 전역 설정
+========================================= */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.3s, color 0.3s;
+}
 
 body {
-  background-color: #f5f5f7;
+  background-color: var(--bg-body);
+  color: var(--text-main);
   min-height: 100vh;
-  padding: 20px;
+  display: block;
+  padding: 3vw;
 }
 
-/* 캘린더 메인 컨테이너 */
-.calendar-main-wrapper {
+/* =========================================
+   2. Main 레이아웃
+========================================= */
+.app-container {
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 18px; /* 더 부드러운 라운드 */
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+}
+
+.main-title {
+  font-size: clamp(1.8rem, 2.5vw, 2.2rem);
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 20px;
+  letter-spacing: -0.5px;
+}
+
+.content-wrapper {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 24px;
+  margin-bottom: 30px;
+}
+
+.calendar-card {
+  flex: 3;
+  background: var(--bg-card);
+  border-radius: 18px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 30px var(--shadow);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 800px;
   overflow: hidden;
 }
 
-/* 1. 헤더 디자인 복구 */
+/* =========================================
+   3. 헤더 및 뷰 전환 (Header.js)
+========================================= */
 .calendar-header {
-  padding: 25px 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
+  z-index: 100;
 }
-.calendar-header h2 { font-size: 1.5rem; font-weight: 700; color: #1d1d1f; }
-.header-nav-btns button {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: white;
-  cursor: pointer;
-  font-weight: 600;
-  margin-left: 8px;
-  transition: all 0.2s;
-}
-.header-nav-btns button:hover { background: var(--bg-gray); }
 
-/* 2. 요일 헤더 디자인 복구 */
-.weekdays-grid-header {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  background: #fbfbfd;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.day-header { padding: 16px 0; text-align: center; font-size: 13px; font-weight: 600; color: #86868b; text-transform: uppercase; letter-spacing: 0.5px; }
-.day-header:nth-child(1) { color: var(--sun-red); }
-.day-header:nth-child(7) { color: var(--sat-blue); }
+/* 빠른 이동 팝업 */
+.header-title-wrapper { position: relative; }
+.header-title.clickable { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 1.6rem; font-weight: 800; }
+.header-title.clickable:hover { color: var(--sat-blue); }
+.dropdown-icon { font-size: 1.2rem; color: var(--text-muted); }
 
-/* 3. 캘린더 바디 & 날짜 칸 */
-.calendar-row-container {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  min-height: 160px; /* 데스크톱 최적 높이 */
-  position: relative;
-  border-bottom: 1px solid var(--bg-gray);
+.date-picker-dropdown {
+  position: absolute; top: 100%; left: 0; margin-top: 10px;
+  background: var(--bg-card); border: 1px solid var(--border-color);
+  border-radius: 16px; padding: 20px; box-shadow: 0 15px 40px var(--shadow);
+  z-index: 2000; width: 320px; animation: modalFadeIn 0.2s ease-out;
 }
-.day-cell { border-right: 1px solid var(--bg-gray); padding: 15px; transition: background 0.2s; }
+.picker-year-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-weight: 800; font-size: 1.3rem; }
+.picker-year-row button { background: var(--bg-body); border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); width: 36px; height: 36px; border-radius: 10px; }
+.picker-year-row button:hover { background: var(--border-color); color: var(--text-main); }
+.picker-month-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.picker-month-btn { background: var(--bg-body); border: none; padding: 12px 0; border-radius: 10px; font-weight: 700; color: var(--text-main); cursor: pointer; }
+.picker-month-btn:hover { background: var(--border-color); }
+.picker-month-btn.current { background: var(--sat-blue); color: white; box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3); }
+
+/* 네비게이션 버튼들 */
+.nav-buttons { display: flex; align-items: center; gap: 8px; }
+.view-toggle-group { display: flex; background: var(--bg-body); border-radius: 12px; padding: 4px; margin-right: 15px; }
+.view-toggle-btn { background: transparent; border: none; padding: 6px 16px; border-radius: 8px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+.view-toggle-btn.active { background: var(--bg-card); color: var(--text-main); box-shadow: 0 2px 8px var(--shadow); }
+.theme-toggle { background: var(--bg-body); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 20px; cursor: pointer; color: var(--text-main); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.header-btn { background: var(--bg-card); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 10px; font-weight: 600; cursor: pointer; color: var(--text-main); transition: all 0.2s ease; }
+.header-btn:hover { background: var(--bg-body); }
+
+/* =========================================
+   4. 사이드 패널 & 위젯 (SidePanel.js)
+========================================= */
+.side-panel-container {
+  flex: 1; min-width: 300px; height: fit-content;
+  background: var(--bg-card); border-radius: 18px; border: 1px solid var(--border-color);
+  box-shadow: 0 8px 30px var(--shadow); padding: 25px; display: flex; flex-direction: column; gap: 20px;
+}
+.side-panel-title { font-size: 1.3rem; font-weight: 800; color: var(--text-main); border-bottom: 2px solid var(--border-color); padding-bottom: 12px; }
+.search-input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-body); outline: none; font-size: 1rem; color: var(--text-main); }
+.stat-group { display: flex; flex-direction: column; gap: 12px; }
+.stat-row { display: flex; justify-content: space-between; align-items: center; font-weight: 600; background: var(--bg-body); padding: 12px 16px; border-radius: 12px; }
+.side-divider { height: 1px; background-color: var(--border-color); margin: 10px 0; }
+
+/* D-Day 위젯 */
+.dday-container { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.dday-item { display: flex; align-items: center; justify-content: space-between; background: var(--bg-body); padding: 12px; border-radius: 12px; border-left: 4px solid var(--sat-blue); }
+.dday-badge { background: var(--sat-blue); color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; }
+
+/* 태그 통계 바 */
+.tag-stat-container { margin-top: 10px; display: flex; flex-direction: column; gap: 12px; }
+.tag-stat-item { display: flex; flex-direction: column; gap: 6px; }
+.tag-stat-info { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700; color: var(--text-main); }
+.tag-stat-info .percentage { color: var(--sat-blue); }
+.stat-bar-bg { width: 100%; height: 8px; background-color: var(--bg-body); border-radius: 4px; overflow: hidden; }
+.stat-bar-fill { height: 100%; background-color: var(--sat-blue); border-radius: 4px; transition: width 0.5s ease; }
+
+/* 태그 리스트 */
+.tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-item { background: var(--event-blue); color: var(--event-blue-text); padding: 6px 12px; border-radius: 8px; font-size: 0.9rem; font-weight: 700; }
+.tag-item.active { background-color: var(--sat-blue); color: white; box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3); }
+
+/* =========================================
+   5. 월간 뷰 (Month View)
+========================================= */
+.calendar-section { display: flex; flex-direction: column; flex: 1; }
+.weekdays-grid { background-color: var(--bg-body); border-bottom: 1px solid var(--border-color); }
+.weekday-cell { padding: 16px 0; text-align: center; font-weight: 700; font-size: 13px; color: var(--text-muted); }
+.weekday-cell.sun { color: var(--sun-red); }
+.weekday-cell.sat { color: var(--sat-blue); }
+
+.days-grid { display: flex; flex-direction: column; flex: 1; }
+.week-row { display: grid; grid-template-columns: repeat(7, 1fr); flex: 1; min-height: 120px; position: relative; border-bottom: 1px solid var(--border-color); }
+.week-row:last-child { border-bottom: none; }
+.day-cell { padding: 10px 15px; border-right: 1px solid var(--border-color); transition: background 0.1s; }
 .day-cell:last-child { border-right: none; }
-.day-label { font-size: 1.1rem; font-weight: 700; margin-bottom: 10px; display: inline-block; }
+.day-cell:hover { background-color: var(--bg-body); cursor: pointer; }
+.day-cell.drag-over { background-color: var(--event-blue); border: 2px dashed var(--sat-blue); }
 
-/* 토/일 날짜 색상 복구 */
-.day-cell:nth-child(1) .day-label { color: var(--sun-red); }
-.day-cell:nth-child(7) .day-label { color: var(--sat-blue); }
+.day-number { font-size: 1.05rem; font-weight: 600; display: inline-block; margin-bottom: 8px; }
+.day-cell.sun .day-number { color: var(--sun-red); }
+.day-cell.sat .day-number { color: var(--sat-blue); }
+.day-cell.other-month .day-number { color: var(--border-color) !important; }
+.day-cell.today .day-number { background: var(--sat-blue); color: white !important; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 4px 8px rgba(0, 122, 255, 0.3); }
 
-.other-month { background-color: #fafafa; }
-.other-month .day-label { color: #d2d2d7 !important; }
-.today-cell { background-color: #fff9db; }
+/* 월간 뷰 이벤트 바 */
+.events-layer { position: absolute; top: 40px; left: 0; right: 0; bottom: 0; pointer-events: none; }
+.event-bar { position: absolute; height: 26px; line-height: 26px; padding: 0 10px; font-size: 12px; font-weight: 700; color: white; pointer-events: auto; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 0; margin: 0; box-shadow: 0 1px 3px var(--shadow); border-right: 1px solid rgba(255,255,255,0.2); transition: transform 0.1s; z-index: 10; }
+.event-bar.start-round { border-top-left-radius: 6px; border-bottom-left-radius: 6px; margin-left: 4px; }
+.event-bar.end-round { border-top-right-radius: 6px; border-bottom-right-radius: 6px; margin-right: 4px; border-right: none; }
+.event-bar:hover { transform: scale(1.02); z-index: 20; filter: brightness(0.95); }
 
-/* 4. 이벤트 바 디자인 (가로 연결형) */
-.event-overlay-layer { position: absolute; top: 48px; left: 0; right: 0; pointer-events: none; }
-.event-bar {
-  position: absolute;
-  height: 28px;
-  line-height: 28px;
-  font-size: 12.5px;
-  color: white;
-  padding: 0 10px;
-  pointer-events: auto;
-  cursor: pointer;
-  z-index: 10;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-.start-round { border-radius: 6px 0 0 6px; margin-left: 4px; }
-.end-round { border-radius: 0 6px 6px 0; margin-right: 4px; }
+/* =========================================
+   6. 주간/일간 뷰 (Time Grid)
+========================================= */
+.time-grid-wrapper { display: flex; flex-direction: column; flex: 1; overflow-y: auto; background: var(--bg-card); }
+.time-grid-header { display: flex; border-bottom: 1px solid var(--border-color); position: sticky; top: 0; background: var(--bg-card); z-index: 10; }
+.time-grid-header-spacer { width: 60px; border-right: 1px solid var(--border-color); }
+.time-grid-header-day { flex: 1; text-align: center; padding: 15px 0; border-right: 1px solid var(--border-color); font-weight: 700; cursor: pointer; transition: 0.2s; }
+.time-grid-header-day:hover { background: var(--bg-body); }
+.time-grid-header-day.today { color: var(--sat-blue); }
 
-/* 컬러셋 복구 */
-.blue { background-color: #007aff; }
-.red { background-color: #ff3b30; }
-.green { background-color: #34c759; }
-.yellow { background-color: #ffcc00; color: #1d1d1f; }
-.purple { background-color: #af52de; }
+.time-grid-body { display: flex; position: relative; height: 1200px; /* 24시간 * 50px */ }
+.time-labels { width: 60px; border-right: 1px solid var(--border-color); position: relative; }
+.time-label-slot { height: 50px; text-align: right; padding-right: 8px; font-size: 0.8rem; color: var(--text-muted); position: relative; top: -10px; }
 
-/* 5. 모달 디자인 복구 (깔끔한 애플 스타일) */
-.modal-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.3); backdrop-filter: blur(10px);
-  display: flex; align-items: center; justify-content: center; z-index: 5000;
-}
-.modal-content {
-  background: white;
-  width: 90%;
-  max-width: 500px; /* 가로폭 적정 수준으로 조정 */
-  padding: 35px;
-  border-radius: 24px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-}
-.input-title-main {
-  width: 100%;
-  font-size: 1.6rem;
-  font-weight: 800;
-  border: none;
-  border-bottom: 2px solid var(--bg-gray);
-  padding: 12px 0;
-  margin-bottom: 25px;
-  outline: none;
-  color: #1d1d1f;
-}
-.time-split-picker {
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--bg-gray); padding: 18px; border-radius: 14px; margin: 20px 0;
-}
-.select-row { display: flex; align-items: center; background: white; padding: 8px 14px; border-radius: 10px; }
-.select-row select { border: none; font-size: 1.2rem; font-weight: 700; color: var(--apple-blue); outline: none; appearance: none; cursor: pointer; }
+.time-columns-container { display: flex; flex: 1; position: relative; }
+.time-column { flex: 1; border-right: 1px solid var(--border-color); position: relative; }
+.time-grid-lines { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+.time-grid-line { height: 50px; border-bottom: 1px solid var(--border-color); opacity: 0.3; }
 
-/* 6. 푸터 디자인 복구 */
-.calendar-footer {
-  padding: 20px 40px;
-  text-align: right;
-  background: #fbfbfd;
-  border-top: 1px solid var(--border);
+.time-event-block { position: absolute; left: 4px; right: 4px; border-radius: 6px; padding: 4px 8px; font-size: 0.85rem; font-weight: 700; color: white; overflow: hidden; cursor: pointer; box-shadow: 0 2px 5px var(--shadow); z-index: 5; transition: transform 0.1s; border: 1px solid rgba(255,255,255,0.2); }
+.time-event-block:hover { transform: scale(1.02); z-index: 6; }
+
+/* =========================================
+   7. 모달 (ModalView.js)
+========================================= */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.modal-content { background: var(--bg-card); width: 90%; max-width: 500px; padding: 35px; border-radius: 24px; box-shadow: 0 24px 80px rgba(0,0,0,0.3); animation: modalFadeIn 0.2s ease-out; position: relative; }
+@keyframes modalFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+.modal-header-samsung { margin-bottom: 25px; }
+.modal-header-samsung input { width: 100%; border: none; font-size: 1.8rem; font-weight: 800; background: transparent; color: var(--text-main); outline: none; }
+.modal-header-samsung input::placeholder { color: var(--text-muted); opacity: 0.5; }
+
+.samsung-body { display: flex; flex-direction: column; }
+.samsung-row { display: flex; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border-color); gap: 16px; }
+.samsung-row:last-child { border-bottom: none; }
+.icon-area { width: 28px; font-size: 1.3rem; text-align: center; }
+.content-area { flex: 1; display: flex; align-items: center; gap: 12px; }
+
+/* 시간 / 알림 / 반복 설정 폼 요소들 */
+.custom-time-area { flex-direction: column; align-items: flex-start !important; gap: 8px !important; }
+.time-block { display: flex; align-items: center; gap: 10px; width: 100%; }
+.time-divider { font-weight: 800; color: var(--text-muted); margin-left: 20px; }
+.date-input, .reminder-num, .reminder-select { background: var(--bg-body) !important; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-main); font-size: 1rem; font-weight: 600; outline: none; }
+.reminder-num { width: 60px; text-align: center; }
+.custom-time-picker { display: flex; align-items: center; gap: 4px; background: var(--bg-body); border-radius: 8px; padding: 4px 8px; border: 1px solid var(--border-color); }
+.custom-time-picker span { font-weight: 800; color: var(--text-main); }
+.time-num { width: 45px; border: none; background: transparent; font-size: 1.1rem; font-weight: 700; color: var(--text-main); text-align: center; outline: none; }
+
+/* 태그 입력 및 색상 프리셋 */
+.content-area input[type="text"] { background: transparent; color: var(--text-main); font-size: 1.05rem; }
+.color-picker-area { display: flex; gap: 12px; flex-wrap: wrap; }
+.color-preset-circle { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+.color-preset-circle:hover { transform: scale(1.1); }
+.color-preset-circle.active { transform: scale(1.15); box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-muted); }
+
+/* 모달 하단 버튼 */
+.modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 35px; }
+.btn { padding: 12px 24px; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; border: none; transition: 0.2s; }
+.btn-save { background: var(--sat-blue); color: white; }
+.btn-save:hover { filter: brightness(0.9); }
+.btn-cancel { background: var(--bg-body); color: var(--text-main); }
+.btn-cancel:hover { filter: brightness(0.9); }
+.btn-delete { color: var(--sun-red); background: transparent; margin-right: auto; padding: 12px 0; }
+.btn-delete:hover { opacity: 0.7; }
+
+/* 서브 모달 (일괄 삭제/수정) */
+.sub-modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); border-radius: 24px; display: flex; align-items: center; justify-content: center; z-index: 10000; animation: fadeIn 0.2s ease; }
+.sub-modal-content { background: var(--bg-card); width: 85%; padding: 25px; border-radius: 16px; text-align: center; box-shadow: 0 10px 40px var(--shadow); }
+.sub-modal-content h4 { font-size: 1.2rem; color: var(--text-main); margin-bottom: 10px; }
+.sub-modal-content p { font-size: 0.95rem; color: var(--text-muted); margin-bottom: 20px; }
+.sub-modal-buttons { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+.sub-btn { background: var(--bg-body); border: none; padding: 14px; border-radius: 10px; font-size: 1rem; font-weight: 700; color: var(--text-main); cursor: pointer; transition: 0.2s; }
+.sub-btn:hover { filter: brightness(0.9); }
+.sub-btn.delete-all { color: var(--sun-red); }
+.sub-btn-cancel { width: 100%; background: transparent; border: none; padding: 10px; font-size: 1rem; font-weight: 600; color: var(--text-muted); cursor: pointer; }
+
+/* =========================================
+   8. FAB (플로팅 버튼) 및 푸터
+========================================= */
+.fab-add-btn { position: fixed; bottom: 40px; right: 40px; width: 65px; height: 65px; border-radius: 50%; background: var(--sat-blue); color: white; font-size: 2.5rem; font-weight: 300; border: none; box-shadow: 0 10px 25px rgba(0, 122, 255, 0.4); cursor: pointer; z-index: 9000; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+.fab-add-btn:hover { transform: scale(1.08); box-shadow: 0 14px 30px rgba(0, 122, 255, 0.5); }
+.fab-add-btn:active { transform: scale(0.95); }
+.calendar-footer { text-align: center; padding: 20px; font-size: 0.95rem; font-weight: 500; color: var(--text-muted); }
+
+/* =========================================
+   9. 모바일 반응형
+========================================= */
+@media (max-width: 1024px) {
+  .content-wrapper { flex-direction: column; }
+  .calendar-card { min-height: 600px; }
+  .week-row { min-height: 100px; }
+  .fab-add-btn { bottom: 20px; right: 20px; width: 55px; height: 55px; font-size: 2rem; }
 }
-.footer-btn {
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-  margin-left: 10px;
-}
-.btn-save { background: var(--apple-blue); color: white; }
-.btn-cancel { background: #e5e5ea; color: #1d1d1f; }
