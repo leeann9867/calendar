@@ -3,17 +3,28 @@ import React, { useState } from 'react';
 function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpdateEventDate, onPrev, onNext, viewMode }) {
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
-    const [touchStart, setTouchStart] = useState(null);
-    const [touchEnd, setTouchEnd] = useState(null);
+    // 🌟 [핵심] 스와이프 좌표 (X, Y 동시 추적)
+    const [touchStart, setTouchStart] = useState({ x: null, y: null });
+    const [touchEnd, setTouchEnd] = useState({ x: null, y: null });
     const minSwipeDistance = 50;
 
-    const onTouchStart = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
-    const onTouchMove = (e) => setTouchEnd(e.targetTouches[0].clientX);
+    const onTouchStart = (e) => {
+        setTouchEnd({ x: null, y: null });
+        setTouchStart({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
+    };
+    const onTouchMove = (e) => {
+        setTouchEnd({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
+    };
     const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        const distance = touchStart - touchEnd;
-        if (distance > minSwipeDistance) onNext();
-        if (distance < -minSwipeDistance) onPrev();
+        if (!touchStart.x || !touchEnd.x) return;
+        const distanceX = touchStart.x - touchEnd.x;
+        const distanceY = touchStart.y - touchEnd.y;
+
+        // 🌟 [안전장치] Y축 이동거리보다 X축 이동거리가 크고, 그게 50px을 넘을 때만 스와이프 인정
+        if (Math.abs(distanceX) > Math.abs(distanceY) && Math.abs(distanceX) > minSwipeDistance) {
+            if (distanceX > 0) onNext();
+            else onPrev();
+        }
     };
 
     const clearTime = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -122,12 +133,7 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                                     key={di} className={`day-cell ${day.getMonth() !== currentDate.getMonth() ? 'other-month' : ''} ${di===0?'sun':di===6?'sat':''} ${clearTime(day) === todayTime ? 'today' : ''}`}
                                     onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
                                     onDragLeave={(e) => e.currentTarget.classList.remove('drag-over')}
-                                    onDrop={(e) => {
-                                        e.preventDefault();
-                                        e.currentTarget.classList.remove('drag-over');
-                                        // 월간 뷰에서는 날짜만 전달
-                                        onUpdateEventDate(e.dataTransfer.getData("eventId"), getFormatDate(day));
-                                    }}
+                                    onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); onUpdateEventDate(e.dataTransfer.getData("eventId"), getFormatDate(day)); }}
                                     onClick={() => onOpenModal(getFormatDate(day))}
                                 ><span className="day-number">{day.getDate()}</span></div>
                             ))}
@@ -210,20 +216,12 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                                 onDrop={(e) => {
                                     e.preventDefault();
                                     e.currentTarget.classList.remove('drag-over');
-
-                                    // 🌟 [핵심] Y축 픽셀 계산으로 드롭된 시간 알아내기
                                     const rect = e.currentTarget.getBoundingClientRect();
-                                    const y = e.clientY - rect.top; // 컬럼 상단으로부터의 마우스 Y위치
-
-                                    // 1시간 = 50px. 30분 단위 스냅 적용
+                                    const y = e.clientY - rect.top;
                                     const hourFloat = Math.max(0, y / 50);
                                     const snappedHour = Math.floor(hourFloat);
                                     const snappedMin = (hourFloat % 1) >= 0.5 ? 30 : 0;
-
-                                    // 포맷팅 (예: 09:30)
                                     const newStartTime = `${String(Math.min(23, snappedHour)).padStart(2, '0')}:${String(snappedMin).padStart(2, '0')}`;
-
-                                    // 날짜와 계산된 시간 함께 전달
                                     onUpdateEventDate(e.dataTransfer.getData("eventId"), getFormatDate(day), newStartTime);
                                 }}
                             >
