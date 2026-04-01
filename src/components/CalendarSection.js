@@ -20,7 +20,6 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
     const getFormatDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const todayTime = clearTime(new Date());
 
-    // 반복 일정 계산 엔진 (기존과 완벽히 동일하여 모든 뷰에서 작동)
     const getInstancesForWeek = (ev, weekStart, weekEnd) => {
         const instances = [];
         const evStart = new Date(ev.startDate);
@@ -60,7 +59,7 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
     };
 
     // --------------------------------------------------------
-    // 뷰 모드 1: 월간 (Month) 렌더링 로직 (기존 유지)
+    // 뷰 모드 1: 월간 (Month)
     // --------------------------------------------------------
     if (viewMode === 'month') {
         const generateCalendar = () => {
@@ -136,17 +135,17 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
     }
 
     // --------------------------------------------------------
-    // 🌟 뷰 모드 2: 주간(Week) / 일간(Day) 타임 그리드 렌더링 로직
+    // 뷰 모드 2: 주간(Week) / 일간(Day)
     // --------------------------------------------------------
     const isWeek = viewMode === 'week';
     const days = [];
     const start = new Date(currentDate);
 
     if (isWeek) {
-        start.setDate(start.getDate() - start.getDay()); // 일요일로 맞춤
+        start.setDate(start.getDate() - start.getDay());
         for (let i = 0; i < 7; i++) { days.push(new Date(start)); start.setDate(start.getDate() + 1); }
     } else {
-        days.push(new Date(start)); // 일간 뷰는 현재 날짜 1개만
+        days.push(new Date(start));
     }
 
     const viewStart = clearTime(days[0]);
@@ -155,13 +154,11 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
     let allInstances = [];
     events.forEach(ev => { allInstances = [...allInstances, ...getInstancesForWeek(ev, viewStart, viewEnd)]; });
 
-    // 세로 시간 라벨 (00:00 ~ 23:00)
     const hours = Array.from({ length: 24 }, (_, i) => i);
 
     return (
         <div className="time-grid-wrapper" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
 
-            {/* 타임 그리드 헤더 (요일/날짜) */}
             <div className="time-grid-header">
                 <div className="time-grid-header-spacer"></div>
                 {days.map((day, i) => (
@@ -176,20 +173,14 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                 ))}
             </div>
 
-            {/* 타임 그리드 바디 (시간대 및 이벤트 블록) */}
             <div className="time-grid-body">
-                {/* 좌측 시간축 */}
                 <div className="time-labels">
                     {hours.map(h => (
-                        <div key={h} className="time-label-slot">
-                            {h === 0 ? '' : `${String(h).padStart(2, '0')}:00`}
-                        </div>
+                        <div key={h} className="time-label-slot">{h === 0 ? '' : `${String(h).padStart(2, '0')}:00`}</div>
                     ))}
                 </div>
 
-                {/* 우측 요일 컬럼들 */}
                 <div className="time-columns-container">
-                    {/* 눈금선 배경 */}
                     <div className="time-grid-lines">
                         {hours.map(h => <div key={h} className="time-grid-line"></div>)}
                     </div>
@@ -198,22 +189,25 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                         const dayStartMs = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0).getTime();
                         const dayEndMs = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59).getTime();
 
-                        // 이 요일에 해당하는 이벤트 필터링 및 높이/위치 계산
                         const dayEvents = allInstances.filter(ev => {
                             const sTime = ev.startTime || '00:00';
                             const eTime = ev.endTime || '23:59';
                             const eStartMs = new Date(`${ev.startDate}T${sTime}:00`).getTime();
                             const eEndMs = new Date(`${ev.endDate || ev.startDate}T${eTime}:00`).getTime();
-                            // 이벤트가 이 날짜와 겹치는지 확인
                             return eStartMs <= dayEndMs && eEndMs >= dayStartMs;
                         });
 
                         return (
                             <div
                                 key={i} className="time-column"
-                                onClick={(e) => {
-                                    // 클릭한 위치를 계산해 대략적인 시간으로 모달 띄우기 기능도 가능하지만, 기본적으로는 해당 날짜로 모달 오픈
-                                    onOpenModal(getFormatDate(day));
+                                onClick={() => onOpenModal(getFormatDate(day))}
+                                // 🚀 [신규] 주간/일간 뷰 세로 기둥에 드래그 앤 드롭 이벤트를 장착합니다.
+                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
+                                onDragLeave={(e) => e.currentTarget.classList.remove('drag-over')}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove('drag-over');
+                                    onUpdateEventDate(e.dataTransfer.getData("eventId"), getFormatDate(day));
                                 }}
                             >
                                 {dayEvents.map(ev => {
@@ -222,25 +216,23 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                                     const eStartMs = new Date(`${ev.startDate}T${sTime}:00`).getTime();
                                     const eEndMs = new Date(`${ev.endDate || ev.startDate}T${eTime}:00`).getTime();
 
-                                    // 이벤트가 해당 날짜 범위를 넘어가면 자름 (00:00 ~ 23:59 내부로 제한)
                                     const renderStartMs = Math.max(eStartMs, dayStartMs);
                                     const renderEndMs = Math.min(eEndMs, dayEndMs);
 
-                                    if (renderStartMs >= renderEndMs) return null; // 유효하지 않은 시간 (자정 딱 맞물리는 경우 등)
+                                    if (renderStartMs >= renderEndMs) return null;
 
                                     const renderStartObj = new Date(renderStartMs);
-                                    // Top 위치: 시간 단위 * 50px
                                     const topPx = (renderStartObj.getHours() + renderStartObj.getMinutes() / 60) * 50;
-                                    // 높이: (끝시간 - 시작시간) / 1시간 * 50px
                                     const durationHours = (renderEndMs - renderStartMs) / (1000 * 60 * 60);
-                                    const heightPx = Math.max(durationHours * 50, 20); // 최소 높이 20px 보장
-
+                                    const heightPx = Math.max(durationHours * 50, 20);
                                     const isHighlighted = selectedTag ? ev.tag === selectedTag : true;
 
                                     return (
                                         <div
                                             key={`${ev.id}-${ev.startDate}`}
                                             className="time-event-block"
+                                            draggable // 🚀 [신규] 일정을 잡아서 드래그할 수 있게 허용
+                                            onDragStart={(e) => { e.dataTransfer.setData("eventId", ev.id); }} // 🚀 [신규] ID 전달
                                             style={{ top: `${topPx}px`, height: `${heightPx}px`, backgroundColor: ev.color, opacity: isHighlighted ? 1 : 0.2 }}
                                             onClick={(e) => { e.stopPropagation(); onOpenModal(getFormatDate(new Date(ev.startDate)), ev); }}
                                         >

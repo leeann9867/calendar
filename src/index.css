@@ -206,6 +206,7 @@ body {
 
 .time-columns-container { display: flex; flex: 1; position: relative; }
 .time-column { flex: 1; border-right: 1px solid var(--border-color); position: relative; }
+.time-column.drag-over { background-color: var(--event-blue); border: 2px dashed var(--sat-blue); z-index: 10; }
 .time-grid-lines { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
 .time-grid-line { height: 50px; border-bottom: 1px solid var(--border-color); opacity: 0.3; }
 
