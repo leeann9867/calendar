@@ -122,7 +122,12 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                                     key={di} className={`day-cell ${day.getMonth() !== currentDate.getMonth() ? 'other-month' : ''} ${di===0?'sun':di===6?'sat':''} ${clearTime(day) === todayTime ? 'today' : ''}`}
                                     onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
                                     onDragLeave={(e) => e.currentTarget.classList.remove('drag-over')}
-                                    onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); onUpdateEventDate(e.dataTransfer.getData("eventId"), getFormatDate(day)); }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.remove('drag-over');
+                                        // 월간 뷰에서는 날짜만 전달
+                                        onUpdateEventDate(e.dataTransfer.getData("eventId"), getFormatDate(day));
+                                    }}
                                     onClick={() => onOpenModal(getFormatDate(day))}
                                 ><span className="day-number">{day.getDate()}</span></div>
                             ))}
@@ -158,7 +163,6 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
 
     return (
         <div className="time-grid-wrapper" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-
             <div className="time-grid-header">
                 <div className="time-grid-header-spacer"></div>
                 {days.map((day, i) => (
@@ -201,13 +205,26 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                             <div
                                 key={i} className="time-column"
                                 onClick={() => onOpenModal(getFormatDate(day))}
-                                // 🚀 [신규] 주간/일간 뷰 세로 기둥에 드래그 앤 드롭 이벤트를 장착합니다.
                                 onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
                                 onDragLeave={(e) => e.currentTarget.classList.remove('drag-over')}
                                 onDrop={(e) => {
                                     e.preventDefault();
                                     e.currentTarget.classList.remove('drag-over');
-                                    onUpdateEventDate(e.dataTransfer.getData("eventId"), getFormatDate(day));
+
+                                    // 🌟 [핵심] Y축 픽셀 계산으로 드롭된 시간 알아내기
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const y = e.clientY - rect.top; // 컬럼 상단으로부터의 마우스 Y위치
+
+                                    // 1시간 = 50px. 30분 단위 스냅 적용
+                                    const hourFloat = Math.max(0, y / 50);
+                                    const snappedHour = Math.floor(hourFloat);
+                                    const snappedMin = (hourFloat % 1) >= 0.5 ? 30 : 0;
+
+                                    // 포맷팅 (예: 09:30)
+                                    const newStartTime = `${String(Math.min(23, snappedHour)).padStart(2, '0')}:${String(snappedMin).padStart(2, '0')}`;
+
+                                    // 날짜와 계산된 시간 함께 전달
+                                    onUpdateEventDate(e.dataTransfer.getData("eventId"), getFormatDate(day), newStartTime);
                                 }}
                             >
                                 {dayEvents.map(ev => {
@@ -231,8 +248,8 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                                         <div
                                             key={`${ev.id}-${ev.startDate}`}
                                             className="time-event-block"
-                                            draggable // 🚀 [신규] 일정을 잡아서 드래그할 수 있게 허용
-                                            onDragStart={(e) => { e.dataTransfer.setData("eventId", ev.id); }} // 🚀 [신규] ID 전달
+                                            draggable
+                                            onDragStart={(e) => { e.dataTransfer.setData("eventId", ev.id); }}
                                             style={{ top: `${topPx}px`, height: `${heightPx}px`, backgroundColor: ev.color, opacity: isHighlighted ? 1 : 0.2 }}
                                             onClick={(e) => { e.stopPropagation(); onOpenModal(getFormatDate(new Date(ev.startDate)), ev); }}
                                         >

@@ -13,8 +13,6 @@ function Main() {
     const [modalConfig, setModalConfig] = useState({ isOpen: false, selectedDate: null, event: null });
     const [theme, setTheme] = useState(localStorage.getItem('calendar_theme') || 'light');
     const [viewMode, setViewMode] = useState('month');
-
-    // 🌟 [신규] 이미 알림이 울린 일정들을 기억해두는 보관함 (중복 알림 방지)
     const notifiedEvents = useRef(new Set());
 
     useEffect(() => {
@@ -32,65 +30,40 @@ function Main() {
         localStorage.setItem('calendar_events', JSON.stringify(events));
     }, [events]);
 
-    // --------------------------------------------------------
-    // 🌟 [핵심] 실제 알람 팝업을 띄우는 백그라운드 엔진
-    // --------------------------------------------------------
     useEffect(() => {
         const checkAlarms = () => {
-            // 알림 권한이 없으면 무시
             if (Notification.permission !== 'granted') return;
-
             const now = new Date();
             const nowTime = now.getTime();
 
             events.forEach(ev => {
-                // 반복 일정은 오늘 날짜 기준으로만 단순화해서 체크 (실무적 접근)
-                // 완벽한 반복 계산은 렌더링 엔진과 분리되어 있어 여기서는 단일 및 오늘 일정 위주로 체크합니다.
-
                 if (!ev.startTime) return;
-
-                // 알림 설정값 밀리초 단위로 변환
                 let reminderMs = 0;
                 const rVal = parseInt(ev.reminderValue, 10) || 0;
                 if (ev.reminderUnit === 'm') reminderMs = rVal * 60 * 1000;
                 else if (ev.reminderUnit === 'h') reminderMs = rVal * 60 * 60 * 1000;
                 else if (ev.reminderUnit === 'd') reminderMs = rVal * 24 * 60 * 60 * 1000;
 
-                // 알림을 끌 경우(0) 무시
                 if (reminderMs === 0 && rVal === 0) return;
-
-                // 일정 시작 시간 객체 생성
                 const targetDate = new Date(`${ev.startDate}T${ev.startTime}:00`);
                 const targetTime = targetDate.getTime();
-
-                // 알림이 울려야 하는 정확한 시간
                 const alarmTime = targetTime - reminderMs;
 
-                // 현재 시간이 알림 시간을 지났고, 아직 알림을 보낸 적이 없다면 (최대 5분 이내의 알람만 처리)
                 if (nowTime >= alarmTime && nowTime <= alarmTime + 5 * 60 * 1000) {
                     const uniqueEventKey = `${ev.id}-${ev.startDate}`;
-
                     if (!notifiedEvents.current.has(uniqueEventKey)) {
-                        // 브라우저 네이티브 알림 띄우기
                         new Notification(`📅 [다가오는 일정] ${ev.title}`, {
-                            body: `일정이 ${rVal}${ev.reminderUnit === 'm' ? '분' : ev.reminderUnit === 'h' ? '시간' : '일'} 뒤에 시작됩니다!\n시간: ${ev.startTime}`,
-                            icon: '/favicon.ico' // 필요시 아이콘 경로 추가
+                            body: `일정이 ${rVal}${ev.reminderUnit === 'm' ? '분' : ev.reminderUnit === 'h' ? '시간' : '일'} 뒤에 시작됩니다!\n시간: ${ev.startTime}`
                         });
-
-                        // 알림 보냄 처리
                         notifiedEvents.current.add(uniqueEventKey);
                     }
                 }
             });
         };
-
-        // 1분(60초)마다 알림 검사 실행
         const intervalId = setInterval(checkAlarms, 60000);
-        // 컴포넌트 마운트 시 최초 1회 즉시 실행
         checkAlarms();
-
         return () => clearInterval(intervalId);
-    }, [events]); // 이벤트 목록이 바뀔 때마다 엔진 업데이트
+    }, [events]);
 
     const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
@@ -116,6 +89,15 @@ function Main() {
     };
 
     const handleSaveEvent = (data, mode = 'all', instanceDate = null) => {
+        // 🌟 [중복 방지 1] 저장 시 동일 시간 검사
+        const isDuplicate = events.some(ev =>
+            ev.id !== data.id && ev.startDate === data.startDate && ev.startTime === data.startTime
+        );
+        if (isDuplicate) {
+            alert('해당 날짜, 해당 시간에 이미 다른 일정이 있습니다. 중복 등록할 수 없습니다.');
+            return; // 중복일 경우 저장 거부
+        }
+
         setEvents(prev => {
             const idx = prev.findIndex(e => e.id === data.id);
             if (idx > -1) {
@@ -159,13 +141,28 @@ function Main() {
         setModalConfig({ isOpen: false, selectedDate: null, event: null });
     };
 
-    const handleUpdateEventDate = (eventId, newDate) => {
+    // 🌟 [핵심] 시간도 함께 전달받도록 파라미터(newStartTime) 추가
+    const handleUpdateEventDate = (eventId, newDate, newStartTime = null) => {
+        // 🌟 [중복 방지 2] 드래그 앤 드롭 시 동일 시간 검사
+        const targetEv = events.find(e => e.id === eventId);
+        if (!targetEv) return;
+        const checkTime = newStartTime || targetEv.startTime;
+
+        const isDuplicate = events.some(ev =>
+            ev.id !== eventId && ev.startDate === newDate && ev.startTime === checkTime
+        );
+        if (isDuplicate) {
+            alert('이동하려는 날짜와 시간에 이미 일정이 있습니다.');
+            return;
+        }
+
         setEvents(prev => prev.map(ev => {
             if (ev.id === eventId) {
                 if (ev.repeatUnit && ev.repeatUnit !== 'none') {
                     alert('반복 일정은 드래그로 이동할 수 없습니다. 클릭해서 수정해주세요.');
                     return ev;
                 }
+
                 const oldStart = new Date(ev.startDate);
                 const oldEnd = new Date(ev.endDate || ev.startDate);
                 const diffDays = Math.round((oldEnd.getTime() - oldStart.getTime()) / (1000 * 60 * 60 * 24));
@@ -175,7 +172,34 @@ function Main() {
                 const y = updatedEnd.getFullYear();
                 const m = String(updatedEnd.getMonth() + 1).padStart(2, '0');
                 const d = String(updatedEnd.getDate()).padStart(2, '0');
-                return { ...ev, startDate: newDate, endDate: `${y}-${m}-${d}` };
+                const formattedEnd = `${y}-${m}-${d}`;
+
+                let updatedStartTime = ev.startTime;
+                let updatedEndTime = ev.endTime;
+
+                // 주간/일간 뷰에서 Y축 드래그로 시간이 전달된 경우 계산
+                if (newStartTime) {
+                    updatedStartTime = newStartTime;
+
+                    const oldStartMins = parseInt(ev.startTime.split(':')[0]) * 60 + parseInt(ev.startTime.split(':')[1]);
+                    const oldEndMins = parseInt(ev.endTime.split(':')[0]) * 60 + parseInt(ev.endTime.split(':')[1]);
+                    const durationMins = oldEndMins - oldStartMins;
+
+                    const newStartMins = parseInt(newStartTime.split(':')[0]) * 60 + parseInt(newStartTime.split(':')[1]);
+                    const newEndMins = newStartMins + durationMins;
+
+                    let newEndHour = Math.floor(newEndMins / 60);
+                    let newEndMinute = newEndMins % 60;
+
+                    // 자정(24시)을 넘지 못하게 23:59로 단순 제한 (실무 안전장치)
+                    if (newEndHour >= 24) {
+                        newEndHour = 23;
+                        newEndMinute = 59;
+                    }
+                    updatedEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}`;
+                }
+
+                return { ...ev, startDate: newDate, endDate: formattedEnd, startTime: updatedStartTime, endTime: updatedEndTime };
             }
             return ev;
         }));

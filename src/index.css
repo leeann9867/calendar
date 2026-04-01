@@ -285,3 +285,40 @@ body {
   .week-row { min-height: 100px; }
   .fab-add-btn { bottom: 20px; right: 20px; width: 55px; height: 55px; font-size: 2rem; }
 }
+
+/* =========================================
+   10. 모바일/소형 화면(태블릿 이하) 헤더 최적화
+========================================= */
+@media (max-width: 768px) {
+  .calendar-header {
+    flex-wrap: wrap; /* 화면이 좁으면 밑으로 자동 줄바꿈 허용 */
+    gap: 15px;
+    padding: 16px;
+  }
+
+  .nav-buttons {
+    width: 100%; /* 네비게이션 버튼들을 전체 너비로 확장 */
+    justify-content: space-between; /* 양쪽 끝으로 예쁘게 정렬 */
+    flex-wrap: wrap; /* 버튼도 좁으면 줄바꿈 */
+    gap: 8px;
+  }
+
+  .header-title.clickable {
+    font-size: 1.4rem; /* 타이틀 크기 살짝 축소 */
+  }
+
+  .view-toggle-btn {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+
+  .header-btn, .theme-toggle {
+    padding: 6px 10px;
+    font-size: 0.9rem;
+  }
+
+  /* 주간/일간 뷰에서 시간이 표시되는 영역 살짝 축소 */
+  .time-labels { width: 45px; }
+  .time-label-slot { padding-right: 4px; font-size: 0.75rem; }
+  .time-grid-header-spacer { width: 45px; }
+}
