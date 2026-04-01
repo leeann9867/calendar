@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-function Header({ currentDate, onPrev, onNext, onToday, onJump, theme, onToggleTheme, viewMode, setViewMode }) {
+function Header({ currentDate, onToday, onJump, viewMode, setViewMode }) {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     const date = currentDate.getDate();
@@ -19,11 +19,9 @@ function Header({ currentDate, onPrev, onNext, onToday, onJump, theme, onToggleT
         <div className="calendar-header">
             <div className="header-title-wrapper" ref={pickerRef}>
                 <div className="header-title clickable" onClick={() => setShowPicker(!showPicker)}>
-                    {/* 🌟 데스크톱용 긴 글자 */}
-                    <span className="title-desktop">
+          <span className="title-desktop">
             {viewMode === 'day' ? `${year}년 ${month}월 ${date}일` : `${year}년 ${month}월`}
           </span>
-                    {/* 🌟 모바일용 짧은 글자 */}
                     <span className="title-mobile">
             {viewMode === 'day' ? `${year}.${month}.${date}` : `${year}.${month}`}
           </span>
@@ -58,15 +56,8 @@ function Header({ currentDate, onPrev, onNext, onToday, onJump, theme, onToggleT
                     <button className={`view-toggle-btn ${viewMode === 'week' ? 'active' : ''}`} onClick={() => setViewMode('week')}>주</button>
                     <button className={`view-toggle-btn ${viewMode === 'day' ? 'active' : ''}`} onClick={() => setViewMode('day')}>일</button>
                 </div>
-
-                <button className="theme-toggle" onClick={onToggleTheme}>
-                    {/* 🌟 테마 버튼도 반응형으로 두 벌 준비 */}
-                    <span className="theme-desktop">{theme === 'light' ? '🌙 다크 모드' : '☀️ 라이트 모드'}</span>
-                    <span className="theme-mobile">{theme === 'light' ? '🌙 다크' : '☀️ 라이트'}</span>
-                </button>
+                {/* 🌟 방향키 버튼, 다크모드 버튼 모두 삭제됨! (모바일에서 깔끔하게 보입니다) */}
                 <button className="header-btn" onClick={onToday}>오늘</button>
-                <button className="header-btn" onClick={onPrev}>&lt;</button>
-                <button className="header-btn" onClick={onNext}>&gt;</button>
             </div>
         </div>
     );

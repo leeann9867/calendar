@@ -3,29 +3,50 @@ import React, { useState } from 'react';
 function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpdateEventDate, onPrev, onNext, viewMode }) {
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
-    // 🌟 [핵심] 스와이프 좌표 (X, Y 동시 추적)
-    const [touchStart, setTouchStart] = useState({ x: null, y: null });
-    const [touchEnd, setTouchEnd] = useState({ x: null, y: null });
+    // 🌟 [통합] 터치 & 마우스 스와이프 감지 상태
+    const [dragStart, setDragStart] = useState({ x: null, y: null });
+    const [dragEnd, setDragEnd] = useState({ x: null, y: null });
+    const [isDragging, setIsDragging] = useState(false);
     const minSwipeDistance = 50;
 
-    const onTouchStart = (e) => {
-        setTouchEnd({ x: null, y: null });
-        setTouchStart({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
-    };
-    const onTouchMove = (e) => {
-        setTouchEnd({ x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY });
-    };
-    const onTouchEnd = () => {
-        if (!touchStart.x || !touchEnd.x) return;
-        const distanceX = touchStart.x - touchEnd.x;
-        const distanceY = touchStart.y - touchEnd.y;
+    const handleDragStart = (clientX, clientY, target) => {
+        // 만약 이벤트 블록(일정)을 잡고 드래그를 시작한 거라면, 스와이프 동작은 차단합니다.
+        if (target.closest('.event-bar') || target.closest('.time-event-block')) return;
 
-        // 🌟 [안전장치] Y축 이동거리보다 X축 이동거리가 크고, 그게 50px을 넘을 때만 스와이프 인정
+        setDragEnd({ x: null, y: null });
+        setDragStart({ x: clientX, y: clientY });
+        setIsDragging(true);
+    };
+
+    const handleDragMove = (clientX, clientY) => {
+        if (!isDragging) return;
+        setDragEnd({ x: clientX, y: clientY });
+    };
+
+    const handleDragEnd = () => {
+        if (!isDragging) return;
+        setIsDragging(false);
+        if (!dragStart.x || !dragEnd.x) return;
+
+        const distanceX = dragStart.x - dragEnd.x;
+        const distanceY = dragStart.y - dragEnd.y;
+
         if (Math.abs(distanceX) > Math.abs(distanceY) && Math.abs(distanceX) > minSwipeDistance) {
             if (distanceX > 0) onNext();
             else onPrev();
         }
     };
+
+    // 모바일 터치 이벤트 핸들러
+    const onTouchStart = (e) => handleDragStart(e.targetTouches[0].clientX, e.targetTouches[0].clientY, e.target);
+    const onTouchMove = (e) => handleDragMove(e.targetTouches[0].clientX, e.targetTouches[0].clientY);
+    const onTouchEnd = handleDragEnd;
+
+    // 데스크톱 마우스 이벤트 핸들러
+    const onMouseDown = (e) => handleDragStart(e.clientX, e.clientY, e.target);
+    const onMouseMove = (e) => handleDragMove(e.clientX, e.clientY);
+    const onMouseUp = handleDragEnd;
+    const onMouseLeave = handleDragEnd; // 캘린더 영역 밖으로 마우스가 나가면 강제 종료
 
     const clearTime = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     const getFormatDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -121,7 +142,11 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
         };
 
         return (
-            <div className="calendar-section" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+            <div
+                className="calendar-section"
+                onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+                onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseLeave}
+            >
                 <div className="weekdays-grid" style={{display:'grid', gridTemplateColumns:'repeat(7, 1fr)'}}>
                     {weekdays.map((d, i) => <div key={i} className={`weekday-cell ${i===0?'sun':i===6?'sat':''}`} style={{textAlign:'center', padding:'15px'}}>{d}</div>)}
                 </div>
@@ -164,11 +189,14 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
 
     let allInstances = [];
     events.forEach(ev => { allInstances = [...allInstances, ...getInstancesForWeek(ev, viewStart, viewEnd)]; });
-
     const hours = Array.from({ length: 24 }, (_, i) => i);
 
     return (
-        <div className="time-grid-wrapper" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+        <div
+            className="time-grid-wrapper"
+            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+            onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseLeave}
+        >
             <div className="time-grid-header">
                 <div className="time-grid-header-spacer"></div>
                 {days.map((day, i) => (
@@ -233,7 +261,6 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
 
                                     const renderStartMs = Math.max(eStartMs, dayStartMs);
                                     const renderEndMs = Math.min(eEndMs, dayEndMs);
-
                                     if (renderStartMs >= renderEndMs) return null;
 
                                     const renderStartObj = new Date(renderStartMs);

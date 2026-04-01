@@ -47,7 +47,7 @@ body {
 }
 
 /* =========================================
-   2. Main 레이아웃
+   2. Main 레이아웃 수정 (상단 바 분리)
 ========================================= */
 .app-container {
   width: 100%;
@@ -57,12 +57,25 @@ body {
   flex-direction: column;
 }
 
+/* 🌟 로고와 테마 토글 버튼이 있는 최상단 줄 */
+.top-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
 .main-title {
   font-size: clamp(1.8rem, 2.5vw, 2.2rem);
   font-weight: 800;
   color: var(--text-main);
-  margin-bottom: 20px;
   letter-spacing: -0.5px;
+  margin: 0; /* 기존 margin-bottom 제거 */
+}
+
+/* 캘린더 영역에 드래그 시 텍스트 선택 방지 효과 추가 */
+.calendar-section, .time-grid-wrapper {
+  user-select: none;
 }
 
 .content-wrapper {
@@ -299,22 +312,20 @@ body {
   .title-desktop, .theme-desktop { display: none; }
   .title-mobile, .theme-mobile { display: inline; }
 
+  /* 불필요했던 헤더 줄바꿈 속성을 지우고 심플하게 변경 */
   .calendar-header {
-    flex-wrap: wrap;
-    gap: 15px;
-    padding: 16px;
+    padding: 16px 20px;
   }
 
+  /* 오늘 버튼은 뷰 토글과 함께 나란히 배치 유지 */
   .nav-buttons {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
+    width: auto;
+    justify-content: flex-end;
   }
 
   .header-title.clickable { font-size: 1.4rem; }
   .view-toggle-btn { padding: 6px 12px; font-size: 0.9rem; }
-  .header-btn, .theme-toggle { padding: 6px 10px; font-size: 0.9rem; }
+  .header-btn { padding: 6px 10px; font-size: 0.9rem; }
 
   .time-labels { width: 45px; }
   .time-label-slot { padding-right: 4px; font-size: 0.75rem; }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react'; // 🚀 useCallback 추가
 import Header from './Header';
 import CalendarSection from './CalendarSection';
 import SidePanel from './SidePanel';
@@ -35,7 +35,6 @@ function Main() {
             if (Notification.permission !== 'granted') return;
             const now = new Date();
             const nowTime = now.getTime();
-
             events.forEach(ev => {
                 if (!ev.startTime) return;
                 let reminderMs = 0;
@@ -43,12 +42,11 @@ function Main() {
                 if (ev.reminderUnit === 'm') reminderMs = rVal * 60 * 1000;
                 else if (ev.reminderUnit === 'h') reminderMs = rVal * 60 * 60 * 1000;
                 else if (ev.reminderUnit === 'd') reminderMs = rVal * 24 * 60 * 60 * 1000;
-
                 if (reminderMs === 0 && rVal === 0) return;
+
                 const targetDate = new Date(`${ev.startDate}T${ev.startTime}:00`);
                 const targetTime = targetDate.getTime();
                 const alarmTime = targetTime - reminderMs;
-
                 if (nowTime >= alarmTime && nowTime <= alarmTime + 5 * 60 * 1000) {
                     const uniqueEventKey = `${ev.id}-${ev.startDate}`;
                     if (!notifiedEvents.current.has(uniqueEventKey)) {
@@ -72,32 +70,45 @@ function Main() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
 
-    const handlePrev = () => {
-        const d = new Date(currentDate);
-        if (viewMode === 'month') d.setMonth(d.getMonth() - 1);
-        else if (viewMode === 'week') d.setDate(d.getDate() - 7);
-        else if (viewMode === 'day') d.setDate(d.getDate() - 1);
-        setCurrentDate(d);
-    };
+    // 🌟 [핵심 수정] ESLint 경고 해결을 위해 useCallback으로 함수를 감싸줍니다.
+    const handlePrev = useCallback(() => {
+        setCurrentDate(prev => {
+            const d = new Date(prev);
+            if (viewMode === 'month') d.setMonth(d.getMonth() - 1);
+            else if (viewMode === 'week') d.setDate(d.getDate() - 7);
+            else if (viewMode === 'day') d.setDate(d.getDate() - 1);
+            return d;
+        });
+    }, [viewMode]);
 
-    const handleNext = () => {
-        const d = new Date(currentDate);
-        if (viewMode === 'month') d.setMonth(d.getMonth() + 1);
-        else if (viewMode === 'week') d.setDate(d.getDate() + 7);
-        else if (viewMode === 'day') d.setDate(d.getDate() + 1);
-        setCurrentDate(d);
-    };
+    const handleNext = useCallback(() => {
+        setCurrentDate(prev => {
+            const d = new Date(prev);
+            if (viewMode === 'month') d.setMonth(d.getMonth() + 1);
+            else if (viewMode === 'week') d.setDate(d.getDate() + 7);
+            else if (viewMode === 'day') d.setDate(d.getDate() + 1);
+            return d;
+        });
+    }, [viewMode]);
+
+    // 🌟 [핵심 수정] 이제 handlePrev, handleNext를 안전하게 배열에 넣을 수 있습니다.
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (modalConfig.isOpen) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === 'ArrowLeft') handlePrev();
+            if (e.key === 'ArrowRight') handleNext();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [modalConfig.isOpen, handlePrev, handleNext]); // 👈 ESLint 완벽 해결!
 
     const handleSaveEvent = (data, mode = 'all', instanceDate = null) => {
-        // 🌟 [중복 방지 1] 저장 시 동일 시간 검사
-        const isDuplicate = events.some(ev =>
-            ev.id !== data.id && ev.startDate === data.startDate && ev.startTime === data.startTime
-        );
+        const isDuplicate = events.some(ev => ev.id !== data.id && ev.startDate === data.startDate && ev.startTime === data.startTime);
         if (isDuplicate) {
             alert('해당 날짜, 해당 시간에 이미 다른 일정이 있습니다. 중복 등록할 수 없습니다.');
-            return; // 중복일 경우 저장 거부
+            return;
         }
-
         setEvents(prev => {
             const idx = prev.findIndex(e => e.id === data.id);
             if (idx > -1) {
@@ -123,15 +134,14 @@ function Main() {
             const targetIdx = prev.findIndex(ev => ev.id === eventId);
             if (targetIdx === -1) return prev;
             const targetEvent = prev[targetIdx];
-
-            if (mode === 'all' || !targetEvent.repeatUnit || targetEvent.repeatUnit === 'none') {
-                return prev.filter(ev => ev.id !== eventId);
-            } else if (mode === 'single') {
+            if (mode === 'all' || !targetEvent.repeatUnit || targetEvent.repeatUnit === 'none') return prev.filter(ev => ev.id !== eventId);
+            if (mode === 'single') {
                 const next = [...prev];
                 const currentExclusions = next[targetIdx].excludedDates || [];
                 next[targetIdx] = { ...next[targetIdx], excludedDates: [...currentExclusions, instanceDate] };
                 return next;
-            } else if (mode === 'future') {
+            }
+            if (mode === 'future') {
                 const next = [...prev];
                 next[targetIdx] = { ...next[targetIdx], repeatEndDate: instanceDate };
                 return next;
@@ -141,20 +151,12 @@ function Main() {
         setModalConfig({ isOpen: false, selectedDate: null, event: null });
     };
 
-    // 🌟 [핵심] 시간도 함께 전달받도록 파라미터(newStartTime) 추가
     const handleUpdateEventDate = (eventId, newDate, newStartTime = null) => {
-        // 🌟 [중복 방지 2] 드래그 앤 드롭 시 동일 시간 검사
         const targetEv = events.find(e => e.id === eventId);
         if (!targetEv) return;
         const checkTime = newStartTime || targetEv.startTime;
-
-        const isDuplicate = events.some(ev =>
-            ev.id !== eventId && ev.startDate === newDate && ev.startTime === checkTime
-        );
-        if (isDuplicate) {
-            alert('이동하려는 날짜와 시간에 이미 일정이 있습니다.');
-            return;
-        }
+        const isDuplicate = events.some(ev => ev.id !== eventId && ev.startDate === newDate && ev.startTime === checkTime);
+        if (isDuplicate) { alert('이동하려는 날짜와 시간에 이미 일정이 있습니다.'); return; }
 
         setEvents(prev => prev.map(ev => {
             if (ev.id === eventId) {
@@ -162,7 +164,6 @@ function Main() {
                     alert('반복 일정은 드래그로 이동할 수 없습니다. 클릭해서 수정해주세요.');
                     return ev;
                 }
-
                 const oldStart = new Date(ev.startDate);
                 const oldEnd = new Date(ev.endDate || ev.startDate);
                 const diffDays = Math.round((oldEnd.getTime() - oldStart.getTime()) / (1000 * 60 * 60 * 24));
@@ -176,29 +177,18 @@ function Main() {
 
                 let updatedStartTime = ev.startTime;
                 let updatedEndTime = ev.endTime;
-
-                // 주간/일간 뷰에서 Y축 드래그로 시간이 전달된 경우 계산
                 if (newStartTime) {
                     updatedStartTime = newStartTime;
-
                     const oldStartMins = parseInt(ev.startTime.split(':')[0]) * 60 + parseInt(ev.startTime.split(':')[1]);
                     const oldEndMins = parseInt(ev.endTime.split(':')[0]) * 60 + parseInt(ev.endTime.split(':')[1]);
                     const durationMins = oldEndMins - oldStartMins;
-
                     const newStartMins = parseInt(newStartTime.split(':')[0]) * 60 + parseInt(newStartTime.split(':')[1]);
                     const newEndMins = newStartMins + durationMins;
-
                     let newEndHour = Math.floor(newEndMins / 60);
                     let newEndMinute = newEndMins % 60;
-
-                    // 자정(24시)을 넘지 못하게 23:59로 단순 제한 (실무 안전장치)
-                    if (newEndHour >= 24) {
-                        newEndHour = 23;
-                        newEndMinute = 59;
-                    }
+                    if (newEndHour >= 24) { newEndHour = 23; newEndMinute = 59; }
                     updatedEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}`;
                 }
-
                 return { ...ev, startDate: newDate, endDate: formattedEnd, startTime: updatedStartTime, endTime: updatedEndTime };
             }
             return ev;
@@ -207,17 +197,20 @@ function Main() {
 
     return (
         <div className="app-container">
-            <h1 className="main-title">My Calendar</h1>
+            <div className="top-header-row">
+                <h1 className="main-title">My Calendar</h1>
+                <button className="theme-toggle" onClick={toggleTheme}>
+                    <span className="theme-desktop">{theme === 'light' ? '🌙 다크 모드' : '☀️ 라이트 모드'}</span>
+                    <span className="theme-mobile">{theme === 'light' ? '🌙' : '☀️'}</span>
+                </button>
+            </div>
+
             <div className="content-wrapper">
                 <div className="calendar-card">
                     <Header
                         currentDate={currentDate}
-                        onPrev={handlePrev}
-                        onNext={handleNext}
                         onToday={() => setCurrentDate(new Date())}
                         onJump={(y, m) => setCurrentDate(new Date(y, m - 1, 1))}
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
                         viewMode={viewMode}
                         setViewMode={setViewMode}
                     />
