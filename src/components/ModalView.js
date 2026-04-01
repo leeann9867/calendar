@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // 🌟 useEffect 추가
 
-function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
+function ModalView({ selectedDate, initData, events, onClose, onSave, onDelete }) {
     const [title, setTitle] = useState(initData?.title || '');
     const [startDate, setStartDate] = useState(initData?.startDate || selectedDate);
     const [endDate, setEndDate] = useState(initData?.endDate || selectedDate);
@@ -18,12 +18,23 @@ function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
     const [repeatValue, setRepeatValue] = useState(initData?.repeatValue || 1);
     const [repeatUnit, setRepeatUnit] = useState(initData?.repeatUnit || 'none');
     const [tag, setTag] = useState(initData?.tag || '');
+    const [memo, setMemo] = useState(initData?.memo || '');
 
     const COLOR_PRESETS = ['#007aff', '#ff3b30', '#34c759', '#ff9500', '#af52de', '#ffcc00', '#8e8e93'];
     const [color, setColor] = useState(initData?.color || COLOR_PRESETS[0]);
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [showSaveModal, setShowSaveModal] = useState(false); // [신규] 저장 옵션 팝업 상태
+    const [showSaveModal, setShowSaveModal] = useState(false);
+
+    // 🌟 [핵심] 모달이 열려있는 동안 배경(달력) 스크롤 완벽 차단
+    useEffect(() => {
+        document.body.style.overflow = 'hidden'; // 배경 스크롤 잠금
+        return () => {
+            document.body.style.overflow = ''; // 모달이 닫힐 때 스크롤 원상복구
+        };
+    }, []);
+
+    const existingTags = Array.from(new Set((events || []).filter(ev => ev.tag && ev.tag.trim() !== '').map(ev => ev.tag)));
 
     const isLastInstance = () => {
         if (!initData || !initData.repeatUnit || initData.repeatUnit === 'none') return true;
@@ -74,27 +85,30 @@ function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
         setter(formatted);
         if (type === 'startH') syncEndTime(startDate, formatted, startMinute);
         if (type === 'startM') syncEndTime(startDate, startHour, formatted);
-        if (type === 'startDate') syncEndTime(formatted, startHour, startMinute);
     };
 
-    // 실무 주석: 현재 입력된 데이터들을 모아서 객체로 반환
+    const handleStartDateChange = (e) => {
+        const newStart = e.target.value;
+        setStartDate(newStart);
+        if (newStart > endDate) {
+            setEndDate(newStart);
+        }
+    };
+
     const getUpdatedData = () => ({
         id: initData?.id || Date.now().toString(),
         title, startDate, endDate,
         startTime: `${startHour}:${startMinute}`,
         endTime: `${endHour}:${endMinute}`,
-        reminderValue, reminderUnit, repeatValue, repeatUnit, tag, color, textColor: '#ffffff'
+        reminderValue, reminderUnit, repeatValue, repeatUnit, tag, color, textColor: '#ffffff',
+        memo
     });
 
-    // [신규] 저장 분기 로직
     const onClickSave = () => {
         if (!title.trim()) return alert('제목을 입력해주세요.');
-
-        // 기존 데이터가 존재하고, 반복 설정이 되어 있으며, 마지막 1개가 아닐 때만 분기 팝업 띄움
         if (initData && initData.repeatUnit && initData.repeatUnit !== 'none' && !isLastInstance()) {
             setShowSaveModal(true);
         } else {
-            // 신규 등록이거나 일반 일정이면 바로 전체 저장
             onSave(getUpdatedData(), 'all');
         }
     };
@@ -102,16 +116,15 @@ function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
     const onClickDelete = () => {
         if (!initData) return;
         if (isLastInstance()) {
-            if (window.confirm("일정을 삭제하시겠습니까?")) {
-                onDelete(initData.id, selectedDate, 'all');
-            }
+            if (window.confirm("일정을 삭제하시겠습니까?")) onDelete(initData.id, selectedDate, 'all');
         } else {
             setShowDeleteModal(true);
         }
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        // 🌟 휠 스크롤 전파 방지를 위해 onWheel 이벤트 차단 추가
+        <div className="modal-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 <div className="modal-header-samsung">
                     <input placeholder="제목 추가" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
@@ -121,14 +134,14 @@ function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
                         <span className="icon-area">🕒</span>
                         <div className="content-area custom-time-area">
                             <div className="time-block">
-                                <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); handleTimeSpin(setStartDate, e.target.value, 0, 'startDate'); }} className="date-input" />
+                                <input type="date" value={startDate} onChange={handleStartDateChange} className="date-input" />
                                 <div className="custom-time-picker">
                                     <input type="number" value={startHour} onChange={e => handleTimeSpin(setStartHour, e.target.value, 23, 'startH')} className="time-num" />
                                     <span>:</span>
                                     <input type="number" value={startMinute} onChange={e => handleTimeSpin(setStartMinute, e.target.value, 59, 'startM')} className="time-num" />
                                 </div>
                             </div>
-                            <span className="time-divider">~</span>
+                            <div className="time-divider">~</div>
                             <div className="time-block">
                                 <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="date-input" />
                                 <div className="custom-time-picker">
@@ -139,6 +152,7 @@ function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
                             </div>
                         </div>
                     </div>
+
                     <div className="samsung-row">
                         <span className="icon-area">🔁</span>
                         <div className="content-area custom-reminder-area">
@@ -160,7 +174,16 @@ function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
                     <div className="samsung-row">
                         <span className="icon-area">🏷️</span>
                         <div className="content-area">
-                            <input type="text" placeholder="태그 추가 (공백 가능)" value={tag} onChange={e => setTag(e.target.value)} style={{ width: '100%', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }} />
+                            <input list="tag-list-options" type="text" placeholder="태그 추가 (공백 가능)" value={tag} onChange={e => setTag(e.target.value)} style={{ width: '100%', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }} />
+                            <datalist id="tag-list-options">
+                                {existingTags.map(t => <option key={t} value={t} />)}
+                            </datalist>
+                        </div>
+                    </div>
+                    <div className="samsung-row align-top">
+                        <span className="icon-area" style={{marginTop: '5px'}}>📝</span>
+                        <div className="content-area">
+                            <textarea placeholder="일정 메모 추가..." value={memo} onChange={e => setMemo(e.target.value)} className="memo-input" rows="3" />
                         </div>
                     </div>
                     <div className="samsung-row">
@@ -172,13 +195,13 @@ function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
                         </div>
                     </div>
                 </div>
+
                 <div className="modal-footer">
                     {initData && <button className="btn btn-delete" onClick={onClickDelete}>삭제</button>}
                     <button className="btn btn-cancel" onClick={onClose}>취소</button>
-                    <button className="btn btn-save" onClick={onClickSave}>저장</button> {/* 함수 교체 */}
+                    <button className="btn btn-save" onClick={onClickSave}>저장</button>
                 </div>
 
-                {/* 삭제 서브 모달 */}
                 {showDeleteModal && (
                     <div className="sub-modal-overlay">
                         <div className="sub-modal-content">
@@ -193,14 +216,12 @@ function ModalView({ selectedDate, initData, onClose, onSave, onDelete }) {
                     </div>
                 )}
 
-                {/* 🌟 수정(저장) 서브 모달 */}
                 {showSaveModal && (
                     <div className="sub-modal-overlay">
                         <div className="sub-modal-content">
                             <h4>반복 일정 수정</h4>
                             <p>반복되는 일정입니다. 어떻게 수정하시겠습니까?</p>
                             <div className="sub-modal-buttons">
-                                {/* 이 일정만 수정 시, 선택했던 날짜(selectedDate)를 넘겨 제외 리스트에 추가시킴 */}
                                 <button className="sub-btn" onClick={() => onSave(getUpdatedData(), 'single', selectedDate)}>이 일정만 수정</button>
                                 <button className="sub-btn" onClick={() => onSave(getUpdatedData(), 'all')}>연관된 모든 일정 수정</button>
                             </div>

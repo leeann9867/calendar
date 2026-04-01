@@ -1,33 +1,29 @@
 import React from 'react';
 
 function SidePanel({ events, searchTerm, setSearchTerm, selectedTag, setSelectedTag }) {
-    // 1. 유효한 태그(공백 제외)가 달린 일정만 추출
     const taggedEvents = events.filter(ev => ev.tag && ev.tag.trim() !== '');
     const totalTaggedCount = taggedEvents.length;
 
-    // 2. 태그별 빈도수 계산
     const tagCounts = taggedEvents.reduce((acc, ev) => {
         acc[ev.tag] = (acc[ev.tag] || 0) + 1;
         return acc;
     }, {});
 
-    // 3. 중복 없는 태그 목록 (정렬: 빈도수 높은 순)
     const sortedTags = Object.keys(tagCounts).sort((a, b) => tagCounts[b] - tagCounts[a]);
 
-    // 4. [신규] D-Day 계산 로직
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // 🌟 D-Day 일정을 최대 5개까지 보여줍니다.
     const upcomingEvents = events
-        .filter(ev => new Date(ev.startDate) >= today) // 오늘 포함 미래 일정
-        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()) // 가까운 순 정렬
-        .slice(0, 3); // 상위 3개만 노출
+        .filter(ev => new Date(ev.startDate).getTime() >= today.getTime())
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+        .slice(0, 5);
 
     return (
         <div className="side-panel-container">
             <h3 className="side-panel-title">일정 관리</h3>
 
-            {/* 🔍 검색창 영역 */}
             <div className="search-group">
                 <input
                     type="text"
@@ -47,7 +43,7 @@ function SidePanel({ events, searchTerm, setSearchTerm, selectedTag, setSelected
 
             <div className="side-divider" />
 
-            {/* 🚀 D-Day 위젯 섹션 */}
+            {/* 🌟 데스크톱 D-Day 상세 표시 (메모 포함) */}
             <div className="stat-group">
                 <div className="side-panel-title" style={{ fontSize: '1.1rem', border: 'none', paddingBottom: '10px' }}>
                     다가오는 일정
@@ -62,9 +58,18 @@ function SidePanel({ events, searchTerm, setSearchTerm, selectedTag, setSelected
                             const diff = Math.ceil((evDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
                             return (
-                                <div key={ev.id} className="dday-item">
-                                    <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{ev.title}</span>
-                                    <span className="dday-badge">{diff === 0 ? 'D-Day' : `D-${diff}`}</span>
+                                <div key={ev.id} className="dday-item-wrapper" style={{ borderLeftColor: ev.color || 'var(--sat-blue)' }}>
+                                    <div className="dday-item-header">
+                                        <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{ev.title}</span>
+                                        <span className="dday-badge" style={{ backgroundColor: ev.color || 'var(--sat-blue)' }}>
+                      {diff === 0 ? 'D-Day' : `D-${diff}`}
+                    </span>
+                                    </div>
+                                    <div className="dday-item-time">
+                                        {ev.startDate} ({ev.startTime || '00:00'} ~ {ev.endTime || '23:59'})
+                                    </div>
+                                    {/* 일정에 메모가 있다면 보여줌 */}
+                                    {ev.memo && <div className="dday-item-memo">{ev.memo}</div>}
                                 </div>
                             );
                         })
@@ -74,7 +79,6 @@ function SidePanel({ events, searchTerm, setSearchTerm, selectedTag, setSelected
 
             <div className="side-divider" />
 
-            {/* 📊 태그 통계 시각화 섹션 (복구 완료!) */}
             <div className="stat-group">
                 <div className="side-panel-title" style={{ fontSize: '1.1rem', border: 'none', paddingBottom: '10px' }}>
                     태그별 비중
@@ -104,26 +108,16 @@ function SidePanel({ events, searchTerm, setSearchTerm, selectedTag, setSelected
 
             <div className="side-divider" />
 
-            {/* 🏷️ 내 태그 목록 및 필터링 버튼 (복구 완료!) */}
             <div className="stat-group">
                 <div className="side-panel-title" style={{ fontSize: '1.1rem', border: 'none', paddingBottom: '5px' }}>
                     태그 필터링
                 </div>
                 <div className="tag-list">
-          <span
-              className={`tag-item ${selectedTag === null ? 'active' : ''}`}
-              onClick={() => setSelectedTag(null)}
-              style={{ cursor: 'pointer' }}
-          >
+          <span className={`tag-item ${selectedTag === null ? 'active' : ''}`} onClick={() => setSelectedTag(null)} style={{ cursor: 'pointer' }}>
             #전체보기
           </span>
                     {sortedTags.map((tag, idx) => (
-                        <span
-                            key={idx}
-                            className={`tag-item ${selectedTag === tag ? 'active' : ''}`}
-                            onClick={() => setSelectedTag(tag)}
-                            style={{ cursor: 'pointer' }}
-                        >
+                        <span key={idx} className={`tag-item ${selectedTag === tag ? 'active' : ''}`} onClick={() => setSelectedTag(tag)} style={{ cursor: 'pointer' }}>
               #{tag}
             </span>
                     ))}

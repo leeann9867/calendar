@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-function Header({ currentDate, onToday, onJump, viewMode, setViewMode }) {
+function Header({ currentDate, onPrev, onNext, onToday, onJump, theme, onToggleTheme, viewMode, setViewMode }) {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     const date = currentDate.getDate();
@@ -56,8 +56,10 @@ function Header({ currentDate, onToday, onJump, viewMode, setViewMode }) {
                     <button className={`view-toggle-btn ${viewMode === 'week' ? 'active' : ''}`} onClick={() => setViewMode('week')}>주</button>
                     <button className={`view-toggle-btn ${viewMode === 'day' ? 'active' : ''}`} onClick={() => setViewMode('day')}>일</button>
                 </div>
-                {/* 🌟 방향키 버튼, 다크모드 버튼 모두 삭제됨! (모바일에서 깔끔하게 보입니다) */}
                 <button className="header-btn" onClick={onToday}>오늘</button>
+                {/* 🌟 좌우 이동 버튼 복구 완료 */}
+                <button className="header-btn" onClick={onPrev}>&lt;</button>
+                <button className="header-btn" onClick={onNext}>&gt;</button>
             </div>
         </div>
     );
