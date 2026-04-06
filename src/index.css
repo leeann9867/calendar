@@ -1,7 +1,7 @@
 /* src/index.css */
 
 /* =========================================
-   0. 테마 변수 (라이트/다크 모드)
+   0. 테마 변수 (라이트/다크 모드) & 리셋
 ========================================= */
 :root {
   --bg-body: #f5f5f7;
@@ -56,7 +56,7 @@ body {
 .calendar-section, .time-grid-wrapper { user-select: none; }
 
 /* =========================================
-   2. 헤더 및 뷰 전환
+   2. 캘린더 상단 헤더 & 컨트롤
 ========================================= */
 .calendar-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 32px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); z-index: 100; }
 .header-title-wrapper { position: relative; }
@@ -80,7 +80,7 @@ body {
 .header-btn:hover { background: var(--bg-body); }
 
 /* =========================================
-   3. 사이드 패널 & 위젯
+   3. 사이드 패널 & 위젯 (데스크톱)
 ========================================= */
 .side-panel-container { flex: 1; min-width: 300px; height: fit-content; background: var(--bg-card); border-radius: 18px; border: 1px solid var(--border-color); box-shadow: 0 8px 30px var(--shadow); padding: 25px; display: flex; flex-direction: column; gap: 20px; }
 .side-panel-title { font-size: 1.3rem; font-weight: 800; color: var(--text-main); border-bottom: 2px solid var(--border-color); padding-bottom: 12px; }
@@ -145,14 +145,20 @@ body {
 .event-bar:hover { transform: scale(1.02); z-index: 20; filter: brightness(0.95); }
 
 /* =========================================
-   5. 주간/일간 뷰 (Time Grid)
+   5. 주간/일간 뷰 (Time Grid) & 하루 종일 영역
 ========================================= */
 .time-grid-wrapper { display: flex; flex-direction: column; flex: 1; overflow-y: auto; background: var(--bg-card); }
 .time-grid-header { display: flex; border-bottom: 1px solid var(--border-color); position: sticky; top: 0; background: var(--bg-card); z-index: 10; }
 .time-grid-header-spacer { width: 60px; border-right: 1px solid var(--border-color); }
-.time-grid-header-day { flex: 1; text-align: center; padding: 15px 0; border-right: 1px solid var(--border-color); font-weight: 700; cursor: pointer; transition: 0.2s; }
+.time-grid-column-header { flex: 1; display: flex; flex-direction: column; border-right: 1px solid var(--border-color); }
+.time-grid-header-day { flex: 1; text-align: center; padding: 15px 0; border-bottom: 1px solid var(--border-color); font-weight: 700; cursor: pointer; transition: 0.2s; }
 .time-grid-header-day:hover { background: var(--bg-body); }
 .time-grid-header-day.today { color: var(--sat-blue); }
+
+.all-day-row { min-height: 20px; background: var(--bg-body); display: flex; flex-direction: column; gap: 2px; padding: 4px; border-bottom: 1px solid var(--border-color); }
+.all-day-item { font-size: 0.75rem; font-weight: 800; color: white; padding: 2px 6px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.all-day-item:hover { filter: brightness(1.1); }
+
 .time-grid-body { display: flex; position: relative; height: 1200px; }
 .time-labels { width: 60px; border-right: 1px solid var(--border-color); position: relative; flex-shrink: 0; }
 .time-label-slot { height: 50px; text-align: right; padding-right: 8px; font-size: 0.8rem; color: var(--text-muted); position: relative; top: -10px; }
@@ -166,7 +172,7 @@ body {
 .time-event-block > div { width: 100%; overflow: hidden !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
 
 /* =========================================
-   6. 모달 & 입력 폼
+   6. 모달 공통 (편집/조회)
 ========================================= */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
 .modal-content { background: var(--bg-card); width: 90%; max-width: 500px; padding: 35px; border-radius: 24px; box-shadow: 0 24px 80px rgba(0,0,0,0.3); animation: modalFadeIn 0.2s ease-out; position: relative; }
@@ -180,59 +186,15 @@ body {
 .icon-area { width: 28px; font-size: 1.3rem; text-align: center; }
 .content-area { flex: 1; display: flex; align-items: center; gap: 12px; }
 
-/* 🌟 버그 수정: 모바일 모달창 UI가 서로 찌그러지지 않게 반응형 및 flex 설정 완벽 조치 */
-.custom-time-area {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-}
-
-.time-block {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  flex-wrap: wrap; /* 창이 좁아지면 자연스럽게 줄바꿈 허용 */
-}
-
-.time-divider {
-  color: var(--text-muted);
-  font-weight: 800;
-  padding-left: 10px;
-}
-
-.date-input {
-  flex: 1;
-  min-width: 130px;
-  background: var(--bg-body) !important;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-  font-size: 1rem;
-  font-weight: 600;
-  outline: none;
-}
-
-.custom-time-picker {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: var(--bg-body);
-  border-radius: 8px;
-  padding: 6px 12px;
-  border: 1px solid var(--border-color);
-}
-
-.custom-time-picker span { font-weight: 800; color: var(--text-main); }
-.time-num { width: 100%; max-width: 50px; border: none; background: transparent; font-size: 1.1rem; font-weight: 700; color: var(--text-main); text-align: center; outline: none; }
+/* 입력 폼 텍스트, 체크박스 등 기본 UI */
+.custom-time-area { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.time-block { display: flex; align-items: center; gap: 10px; width: 100%; flex-wrap: wrap; }
+.time-divider { color: var(--text-muted); font-weight: 800; padding-left: 10px; }
+.date-input { flex: 1; min-width: 130px; background: var(--bg-body) !important; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-main); font-size: 1rem; font-weight: 600; outline: none; }
+.custom-time-picker { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; background: var(--bg-body); border-radius: 8px; padding: 6px 12px; border: 1px solid var(--border-color); }
 
 .reminder-num, .reminder-select { background: var(--bg-body) !important; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); color: var(--text-main); font-size: 1rem; font-weight: 600; outline: none; }
 .reminder-num { width: 60px; text-align: center; }
-
 .content-area input[type="text"] { background: transparent; color: var(--text-main); font-size: 1.05rem; }
 .memo-input { width: 100%; background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; color: var(--text-main); font-size: 0.95rem; resize: none; outline: none; }
 .memo-input::placeholder { color: var(--text-muted); opacity: 0.7; }
@@ -241,6 +203,7 @@ body {
 .color-preset-circle { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
 .color-preset-circle:hover { transform: scale(1.1); }
 .color-preset-circle.active { transform: scale(1.15); box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-muted); }
+
 .modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 35px; }
 .btn { padding: 12px 24px; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; border: none; transition: 0.2s; }
 .btn-save { background: var(--sat-blue); color: white; }
@@ -249,6 +212,8 @@ body {
 .btn-cancel:hover { filter: brightness(0.9); }
 .btn-delete { color: var(--sun-red); background: transparent; margin-right: auto; padding: 12px 0; }
 .btn-delete:hover { opacity: 0.7; }
+
+/* 반복 수정/삭제 시 뜨는 2중 팝업 */
 .sub-modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); border-radius: 24px; display: flex; align-items: center; justify-content: center; z-index: 10000; animation: fadeIn 0.2s ease; }
 .sub-modal-content { background: var(--bg-card); width: 85%; padding: 25px; border-radius: 16px; text-align: center; box-shadow: 0 10px 40px var(--shadow); }
 .sub-modal-content h4 { font-size: 1.2rem; color: var(--text-main); margin-bottom: 10px; }
@@ -259,73 +224,49 @@ body {
 .sub-btn.delete-all { color: var(--sun-red); }
 .sub-btn-cancel { width: 100%; background: transparent; border: none; padding: 10px; font-size: 1rem; font-weight: 600; color: var(--text-muted); cursor: pointer; }
 
-/* FAB 데스크톱 숨김 */
-.fab-add-btn { display: none; }
-.calendar-footer { text-align: center; padding: 20px; font-size: 0.95rem; font-weight: 500; color: var(--text-muted); }
+/* =========================================
+   7. 상세 보기(Read-only) 모달 UI
+========================================= */
+.view-mode-header { padding-left: 15px; margin-bottom: 25px; }
+.view-mode-header h2 { font-size: 1.8rem; font-weight: 800; color: var(--text-main); margin-bottom: 8px; }
+.view-time { font-size: 0.95rem; font-weight: 600; color: var(--text-muted); }
+.view-mode-body { display: flex; flex-direction: column; gap: 16px; background: var(--bg-body); padding: 20px; border-radius: 16px; margin-bottom: 30px; }
+.view-row { display: flex; align-items: center; gap: 12px; font-size: 1rem; color: var(--text-main); font-weight: 500; }
+.view-row .icon { font-size: 1.2rem; width: 24px; text-align: center; }
+.tag-badge { background: var(--sat-blue); color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; }
+.view-memo-box { flex: 1; background: var(--bg-card); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; }
 
 /* =========================================
-   7. 모바일/소형 화면 최적화 및 모바일 FAB
+   8. 마우스 휠 & 터치 스와이프 시간 조절기 (핵심 기능)
 ========================================= */
-.title-mobile, .theme-mobile { display: none; }
-.title-desktop, .theme-desktop { display: inline; }
+.time-wheel-unit {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--sat-blue);
+  text-align: center;
+  padding: 4px 8px;
+  cursor: ns-resize; /* 마우스 오버 시 위아래 화살표 */
+  touch-action: none; /* 모바일에서 드래그 시 화면 스크롤 금지 */
+  user-select: none;
+  border-radius: 8px;
+  background: var(--bg-body);
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
 
-@media (max-width: 768px) {
-  .title-desktop, .theme-desktop { display: none; }
-  .title-mobile, .theme-mobile { display: inline; }
-
-  .calendar-header { padding: 16px 20px; }
-  .nav-buttons { width: auto; justify-content: flex-end; }
-  .header-title.clickable { font-size: 1.4rem; }
-  .view-toggle-btn { padding: 6px 12px; font-size: 0.9rem; }
-  .header-btn, .theme-toggle { padding: 6px 10px; font-size: 0.9rem; }
-
-  .time-labels { width: 45px; }
-  .time-label-slot { padding-right: 4px; font-size: 0.75rem; }
-  .time-grid-header-spacer { width: 45px; }
-
-  .content-wrapper { flex-direction: column; }
-  .calendar-card { min-height: 600px; }
-  .week-row { min-height: 100px; }
-
-  /* 🌟 모바일 모달창 안쪽 여백 축소 및 세로 배치 허용 */
-  .modal-content { padding: 25px 20px; width: 95%; }
-  .time-divider { display: none; } /* 좁은 모바일에서는 물결(~)표시 생략하여 공간 확보 */
-
-  /* =========================================
-     모바일 전용 플로팅(+) 버튼 완벽 중앙 정렬
-  ========================================= */
-  .fab-add-btn {
-    display: flex !important; /* 항상 flex 강제 적용 */
-    position: fixed;
-    bottom: 25px;
-    right: 25px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background-color: var(--sat-blue);
-    color: white;
-    border: none;
-    box-shadow: 0 10px 25px rgba(0, 122, 255, 0.4);
-    cursor: pointer;
-    z-index: 9000;
-    align-items: center !important; /* 수직 정중앙 강제 */
-    justify-content: center !important; /* 수평 정중앙 강제 */
-    padding: 0 !important; /* 브라우저 기본 버튼 패딩 제거 */
-    margin: 0 !important;
-  }
-
-  /* SVG 아이콘 쏠림 방지 */
-  .fab-add-btn svg {
-    display: block;
-    margin: 0 auto;
-  }
-
-  .fab-add-btn:active { transform: scale(0.95); }
+.time-wheel-unit:hover, .time-wheel-unit:active {
+  background: var(--bg-card);
+  border: 1px solid var(--sat-blue);
+  box-shadow: 0 4px 10px rgba(0, 122, 255, 0.2);
 }
 
 /* =========================================
-   8. 모바일 전용 이벤트 리스트 및 점(Dot) UI
+   9. 모바일 하단 일정 리스트 (데스크톱 기본 숨김)
 ========================================= */
+.title-mobile, .theme-mobile { display: none; }
+.title-desktop, .theme-desktop { display: inline; }
+.fab-add-btn { display: none; }
+
 .mobile-event-list-container { display: none; padding: 20px; background: var(--bg-card); border-top: 1px solid var(--border-color); flex-direction: column; gap: 10px; }
 .mobile-list-title { font-size: 1.1rem; color: var(--text-main); font-weight: 800; border-bottom: 2px solid var(--border-color); padding-bottom: 8px; margin-bottom: 10px; }
 .mobile-list-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-body); border-radius: 12px; cursor: pointer; transition: 0.2s; }
@@ -339,7 +280,58 @@ body {
 .mobile-dots { display: none; justify-content: center; gap: 4px; margin-top: 6px; }
 .mobile-dots span { width: 6px; height: 6px; border-radius: 50%; }
 
+/* =========================================
+   10. 모바일 반응형 완벽 통합 (스마트폰 최적화)
+========================================= */
 @media (max-width: 768px) {
+  /* 제목 및 테마 전환 버튼 */
+  .title-desktop, .theme-desktop { display: none; }
+  .title-mobile, .theme-mobile { display: inline; }
+
+  /* 🌟 [요청 사항 완벽 반영] 모바일에서는 사이드 패널을 아예 없앱니다! */
+  .side-panel-container { display: none !important; }
+
+  /* 헤더 간격 축소 */
+  .calendar-header { padding: 16px 20px; }
+  .nav-buttons { width: auto; justify-content: flex-end; }
+  .header-title.clickable { font-size: 1.4rem; }
+  .view-toggle-btn { padding: 6px 12px; font-size: 0.9rem; }
+  .header-btn, .theme-toggle { padding: 6px 10px; font-size: 0.9rem; }
+
+  /* 주/일간 뷰 시간표 간격 축소 */
+  .time-labels { width: 45px; }
+  .time-label-slot { padding-right: 4px; font-size: 0.75rem; }
+  .time-grid-header-spacer { width: 45px; }
+
+  /* 캘린더 전체 틀 축소 */
+  .content-wrapper { flex-direction: column; }
+  .calendar-card { min-height: 600px; border-radius: 0; border-left: none; border-right: none; }
+  .week-row { min-height: 100px; }
+
+  /* 🌟 모바일 모달창 UI 뭉개짐 방지 최적화 */
+  .modal-content { padding: 25px 20px; width: 95%; }
+  .time-divider { display: none; } /* 좁은 모바일에서는 물결(~)표시 생략 */
+  .custom-time-picker { min-width: 80px; flex: 1; }
+  .time-wheel-unit { font-size: 1.1rem; padding: 4px 6px; }
+
+  /* 🌟 모바일 전용 플로팅(+) 버튼 부활 및 완벽 중앙 정렬 */
+  .fab-add-btn {
+    display: flex !important;
+    position: fixed;
+    bottom: 25px; right: 25px;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background-color: var(--sat-blue); color: white;
+    border: none; box-shadow: 0 10px 25px rgba(0, 122, 255, 0.4);
+    cursor: pointer; z-index: 9000;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important; margin: 0 !important;
+  }
+  .fab-add-btn svg { display: block; margin: 0 auto; }
+  .fab-add-btn:active { transform: scale(0.95); }
+
+  /* 모바일 전용 하단 리스트 활성화 */
   .day-cell { text-align: center; display: flex; flex-direction: column; align-items: center; }
   .day-number { margin-left: 0; margin-right: 0; }
   .events-layer { display: none; }
