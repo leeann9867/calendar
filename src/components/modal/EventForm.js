@@ -1,23 +1,30 @@
 import React, { useState } from 'react';
 import { isLastInstance, getFormatDate } from '../../utils/calendarUtils';
-import WheelableTimeUnit from '../common/WheelableTimeUnit'; // 🌟 분리한 공통 컴포넌트 임포트
+import WheelableTimeUnit from '../common/WheelableTimeUnit';
 
 /**
- * [EventForm]
- * 새로운 일정을 생성하거나, 기존 일정을 수정할 때 사용되는 입력 폼(Form) 컴포넌트입니다.
+ * [EventForm Component]
+ * 신규 일정을 생성하거나 기존 일정을 수정(Edit)하기 위한 폼 UI 컴포넌트입니다.
+ * 날짜/시간 선택, 반복/알림 설정, 태그 추가, 메모 작성 및 색상 지정 등 모든 입력 로직을 통합 관리합니다.
+ * @param {string} selectedDate - 달력에서 클릭하여 선택된 기본 날짜 (YYYY-MM-DD)
+ * @param {Object|null} initData - 수정 모드일 경우 전달되는 기존 일정 데이터 (생성 모드면 null)
+ * @param {Array} events - 기존에 등록된 전체 일정 배열 (태그 자동완성을 위해 사용)
+ * @param {function} onClose - 모달 닫기 함수
+ * @param {function} onSave - 변경된 일정 데이터를 부모로 전달하여 저장하는 함수
+ * @param {function} onDelete - 일정을 삭제하는 함수
  */
 function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }) {
-    const fallbackDate = selectedDate || getFormatDate(new Date()); // 선택된 날짜가 없으면 오늘 날짜로 폴백
+    const fallbackDate = selectedDate || getFormatDate(new Date());
 
-    // --------------------------------------------------------
-    // 1. 폼 데이터 상태(State) 관리
-    // --------------------------------------------------------
+    // ==========================================
+    // [상태(State) 관리] 폼 입력 필드들의 상태값 모음
+    // ==========================================
     const [title, setTitle] = useState(initData?.title || '');
     const [startDate, setStartDate] = useState(initData?.startDate || fallbackDate);
     const [endDate, setEndDate] = useState(initData?.endDate || fallbackDate);
-    const [isAllDay, setIsAllDay] = useState(initData?.isAllDay || false);
+    const [isAllDay, setIsAllDay] = useState(initData?.isAllDay || false); // 하루 종일 여부
 
-    // 시간/분 분리 관리 (조작의 편의성을 위해)
+    // 시/분 단위 제어를 위해 각각 분리하여 상태 저장
     const initStart = (initData?.startTime || '09:00').split(':');
     const [startHour, setStartHour] = useState(initStart[0]);
     const [startMinute, setStartMinute] = useState(initStart[1]);
@@ -26,44 +33,44 @@ function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }
     const [endHour, setEndHour] = useState(initEnd[0]);
     const [endMinute, setEndMinute] = useState(initEnd[1]);
 
-    // 알림 및 반복 설정 상태
     const [reminderValue, setReminderValue] = useState(initData?.reminderValue || 1);
     const [reminderUnit, setReminderUnit] = useState(initData?.reminderUnit || 'h');
     const [repeatValue, setRepeatValue] = useState(initData?.repeatValue || 1);
     const [repeatUnit, setRepeatUnit] = useState(initData?.repeatUnit || 'none');
-
-    // 태그, 메모, 색상 상태
     const [tag, setTag] = useState(initData?.tag || '');
     const [memo, setMemo] = useState(initData?.memo || '');
+
     const COLOR_PRESETS = ['#007aff', '#ff3b30', '#34c759', '#ff9500', '#af52de', '#ffcc00', '#8e8e93'];
     const [color, setColor] = useState(initData?.color || COLOR_PRESETS[0]);
 
-    // 서브 모달(반복 일정 수정/삭제 선택창) 렌더링 상태
+    // 다중 반복 일정 수정/삭제 시 팝업될 서브 모달 상태
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showSaveModal, setShowSaveModal] = useState(false);
 
-    // 현재까지 등록된 모든 태그 목록 추출 (자동완성 드롭다운용)
+    // 태그 자동완성 드롭박스 생성을 위해 전체 이벤트에서 중복 없는 태그 리스트 추출
     const existingTags = Array.from(new Set((events || []).filter(ev => ev.tag && ev.tag.trim() !== '').map(ev => ev.tag)));
 
-    // --------------------------------------------------------
-    // 2. 입력값 변경 핸들러 함수들
-    // --------------------------------------------------------
+    // ==========================================
+    // [제어 로직] 날짜 및 시간 동기화 스마트 알고리즘
+    // ==========================================
 
-    /** 시작 날짜를 바꾸면, 종료 날짜가 시작 날짜보다 과거가 되지 않도록 동기화 */
+    // 시작 날짜 변경 시, 종료 날짜가 시작 날짜보다 과거로 설정되지 않도록 자동 방어
     const handleStartDateChange = (e) => {
         const newStart = e.target.value;
         setStartDate(newStart);
         if (newStart > endDate) setEndDate(newStart);
     };
 
-    /** 시작 시간을 바꾸면, 1시간 뒤의 시간을 자동으로 계산해서 종료 시간에 입력해주는 스마트 동기화 함수 */
+    // 시작 시간(시/분)이 변경되면 자동으로 '1시간 뒤'를 계산하여 종료 시간(End Time)에 세팅
     const syncEndTime = (newHour, newMin) => {
         const startObj = new Date(`${startDate}T${newHour}:${newMin}:00`);
-        startObj.setHours(startObj.getHours() + 1); // 딱 1시간 더함
+        startObj.setHours(startObj.getHours() + 1); // 1시간을 더함
+
         const y = startObj.getFullYear();
         const m = String(startObj.getMonth() + 1).padStart(2, '0');
         const d = String(startObj.getDate()).padStart(2, '0');
 
+        // 날짜가 자정을 넘겨 다음 날이 되었다면 종료 날짜도 함께 갱신
         setEndDate(`${y}-${m}-${d}`);
         setEndHour(String(startObj.getHours()).padStart(2, '0'));
         setEndMinute(String(startObj.getMinutes()).padStart(2, '0'));
@@ -79,22 +86,20 @@ function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }
         syncEndTime(startHour, newVal);
     };
 
-    // --------------------------------------------------------
-    // 3. 저장 및 삭제 버튼 로직
-    // --------------------------------------------------------
-
-    /** 현재 상태의 입력값들을 하나의 객체(Event Object)로 패킹 */
+    // ==========================================
+    // [데이터 전송 로직] 생성 및 수정 패킹
+    // ==========================================
     const getUpdatedData = () => ({
-        id: initData?.id || Date.now().toString(), // 새 일정이면 타임스탬프로 고유 ID 생성
+        id: initData?.id || Date.now().toString(), // 고유 ID 부여
         title, startDate, endDate, isAllDay,
-        startTime: isAllDay ? null : `${startHour}:${startMinute}`,
+        startTime: isAllDay ? null : `${startHour}:${startMinute}`, // 하루 종일이면 시간 무시
         endTime: isAllDay ? null : `${endHour}:${endMinute}`,
         reminderValue, reminderUnit, repeatValue, repeatUnit, tag, color, memo
     });
 
     const onClickSave = () => {
         if (!title.trim()) return alert('제목을 입력해주세요.');
-        // 반복 일정을 수정하려는데 1개짜리(마지막) 인스턴스가 아니라면 -> 서브 모달 띄워서 묻기
+        // 반복 설정이 되어 있는 일정 묶음 중 남은 일정이 여러 개일 경우 서브 모달창 분기 처리
         if (initData && initData.repeatUnit && initData.repeatUnit !== 'none' && !isLastInstance(initData)) {
             setShowSaveModal(true);
         } else {
@@ -111,16 +116,13 @@ function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }
         }
     };
 
-    // --------------------------------------------------------
-    // 4. 렌더링 (UI)
-    // --------------------------------------------------------
     return (
         <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header-samsung">
                 <input placeholder="제목 추가" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
             </div>
-
             <div className="samsung-body">
+
                 {/* 하루 종일 토글 */}
                 <div className="samsung-row">
                     <span className="icon-area">⏰</span>
@@ -130,7 +132,7 @@ function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }
                     </div>
                 </div>
 
-                {/* 날짜 및 시간 선택 */}
+                {/* 날짜 및 커스텀 시간 휠 */}
                 <div className="samsung-row">
                     <span className="icon-area">🕒</span>
                     <div className="content-area custom-time-area">
@@ -159,7 +161,7 @@ function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }
                     </div>
                 </div>
 
-                {/* 반복 설정 */}
+                {/* 반복 주기 설정 */}
                 <div className="samsung-row">
                     <span className="icon-area">🔁</span>
                     <div className="content-area custom-reminder-area">
@@ -181,7 +183,7 @@ function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }
                     </div>
                 </div>
 
-                {/* 태그 입력 및 드롭다운 */}
+                {/* 태그 작성 영역 */}
                 <div className="samsung-row">
                     <span className="icon-area">🏷️</span>
                     <div className="content-area" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -195,7 +197,7 @@ function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }
                     </div>
                 </div>
 
-                {/* 메모 작성 */}
+                {/* 메모 작성 영역 */}
                 <div className="samsung-row align-top">
                     <span className="icon-area" style={{marginTop: '5px'}}>📝</span>
                     <div className="content-area">
@@ -203,7 +205,7 @@ function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }
                     </div>
                 </div>
 
-                {/* 색상 선택 팔레트 */}
+                {/* 색상 선택 팔레트 영역 */}
                 <div className="samsung-row">
                     <span className="icon-area">🎨</span>
                     <div className="content-area color-picker-area">
