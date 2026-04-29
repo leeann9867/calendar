@@ -1,0 +1,21 @@
+# 📦 의존성 (설치된 라이브러리 - 매우 무거움)
+node_modules/
+
+# 🗄️ 데이터베이스 파일 (실제 데이터 보호 및 충돌 방지)
+*.db
+*.sqlite
+*.sqlite3
+calendar.db
+
+# 🔐 환경 변수 (비밀번호, 포트 번호 등 보안 정보)
+.env
+.env.local
+
+# 📝 로그 파일 (서버 에러 기록 등)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 🍎/🪟 운영체제 생성 찌꺼기 파일
+.DS_Store
+Thumbs.db
