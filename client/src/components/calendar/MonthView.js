@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useMemo } from 'react';
 import { clearTime, getFormatDate, getInstancesForWeek, sortEvents } from '../../utils/calendarUtils';
 import MobileEventList from './MobileEventList';
 
@@ -6,30 +6,52 @@ import MobileEventList from './MobileEventList';
  * [MonthView Component]
  * 캘린더의 가장 핵심이 되는 '월간(Month)' 달력 뷰를 렌더링합니다.
  * 데스크톱에서는 이벤트를 가로 막대(Bar)로 표시하고, 모바일에서는 점(Dot)으로 표시 후 하단에 리스트를 띄웁니다.
- * @param {Date} currentDate - 현재 캘린더가 가리키고 있는 기준 날짜
- * @param {Array} events - 필터링 및 검색이 완료된 이벤트 배열
- * @param {string|null} selectedTag - 우측 패널에서 선택된 태그 (하이라이트용)
- * @param {function} onOpenModal - 날짜나 이벤트를 클릭했을 때 모달을 여는 함수
- * @param {function} onUpdateEventDate - 드래그 앤 드롭으로 일정이 이동했을 때 호출되는 함수
- * @param {boolean} isMobile - 현재 화면이 모바일 해상도인지 여부
- * @param {string} mobileSelectedDate - 모바일에서 터치하여 선택한 날짜 (YYYY-MM-DD)
- * @param {function} setMobileSelectedDate - 모바일 선택 날짜 변경 함수
- * @param {function} handleEventTouchStart - 모바일 롱프레스 드래그 시작 이벤트
- * @param {function} handleEventTouchMove - 모바일 롱프레스 드래그 이동 이벤트
- * @param {function} handleEventTouchEnd - 모바일 롱프레스 드래그 종료 이벤트
  */
 function MonthView({
-                       currentDate, events, selectedTag, onOpenModal, onUpdateEventDate,
+                       currentDate, events,
+                       getHolidayName, // 🌟 부모(CalendarSection)로부터 공휴일 판별 마법 지팡이를 전달받았습니다!
+                       selectedTag, onOpenModal, onUpdateEventDate,
                        isMobile, mobileSelectedDate, setMobileSelectedDate,
-                       handleEventTouchStart, handleEventTouchMove, handleEventTouchEnd
+                       handleEventTouchStart, handleEventTouchMove, handleEventTouchEnd,
+                       onDeleteAllOnDate
                    }) {
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-    const todayTime = clearTime(new Date());
+    const todayTime = clearTime(new Date()); // 오늘 날짜를 하이라이트하기 위한 자정(00:00:00) 기준 타임스탬프
 
-    // ========================================================
-    // 1. 달력 날짜 그리드(Grid) 배열 생성 로직 (42칸 생성)
-    // ========================================================
-    const generateCalendar = () => {
+    // =====================================================================
+    // [롱터치(Long Press) 일괄 삭제 모듈]
+    // 모바일과 데스크톱 모두에서 날짜 칸을 0.6초간 꾹 누르면 일괄 삭제가 동작하도록 합니다.
+    // =====================================================================
+    const pressTimer = useRef(null);
+    const isLongPressed = useRef(false);
+
+    const startPress = (dayStr, dayEvents) => {
+        isLongPressed.current = false;
+        if (!dayEvents || dayEvents.length === 0) return;
+
+        pressTimer.current = setTimeout(() => {
+            isLongPressed.current = true;
+            if (onDeleteAllOnDate) onDeleteAllOnDate(dayStr, dayEvents);
+        }, 600);
+    };
+
+    const cancelPress = () => {
+        if (pressTimer.current) clearTimeout(pressTimer.current);
+    };
+
+    const handleCellClick = (dayStr) => {
+        if (isLongPressed.current) {
+            isLongPressed.current = false;
+            return;
+        }
+        if (isMobile) setMobileSelectedDate(dayStr);
+        else onOpenModal(dayStr);
+    };
+
+    // =====================================================================
+    // [렌더링 최적화 1] 달력 뼈대(42칸) 생성 (useMemo 적용)
+    // =====================================================================
+    const weeks = useMemo(() => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         const start = new Date(year, month, 1);
@@ -43,31 +65,29 @@ function MonthView({
             start.setDate(start.getDate() + 1);
         }
 
-        // 42일치 1차원 배열을 7칸씩 잘라 6주치 2차원 배열(weeks)로 변환
-        const weeks = [];
-        for (let i = 0; i < 42; i += 7) weeks.push(days.slice(i, i + 7));
-        return weeks;
-    };
+        const wks = [];
+        for (let i = 0; i < 42; i += 7) wks.push(days.slice(i, i + 7));
+        return wks;
+    }, [currentDate]);
 
-    const weeks = generateCalendar();
+    // =====================================================================
+    // [렌더링 최적화 2] 반복 일정을 포함한 화면 내 전체 일정 전개 (useMemo 적용)
+    // =====================================================================
+    const allInstances = useMemo(() => {
+        let instances = [];
+        const viewStart = clearTime(weeks[0][0]);
+        const viewEnd = clearTime(weeks[5][6]);
 
-    // ========================================================
-    // 2. 화면 범위 내 유효한 이벤트 추출 및 렌더링 준비
-    // ========================================================
-    let allInstances = [];
-    const viewStart = clearTime(weeks[0][0]);
-    const viewEnd = clearTime(weeks[5][6]);
+        events.forEach(ev => {
+            instances = [...instances, ...getInstancesForWeek(ev, viewStart, viewEnd)];
+        });
 
-    events.forEach(ev => {
-        allInstances = [...allInstances, ...getInstancesForWeek(ev, viewStart, viewEnd)];
-    });
+        return sortEvents(instances);
+    }, [events, weeks]);
 
-    // (하루종일 우선 -> 시간 우선) 규칙에 따라 정렬 처리
-    allInstances = sortEvents(allInstances);
-
-    // ========================================================
-    // 3. 특정 주(Week)에 이벤트를 가로 막대(Bar)로 배치하는 알고리즘
-    // ========================================================
+    // =====================================================================
+    // [일정 가로 막대(Bar) 배치 알고리즘]
+    // =====================================================================
     const renderEventsForWeek = (week) => {
         const weekStart = clearTime(week[0]);
         const weekEnd = clearTime(week[6]);
@@ -78,7 +98,7 @@ function MonthView({
             (ev.endDate ? clearTime(new Date(ev.endDate)) : clearTime(new Date(ev.startDate))) >= weekStart
         );
 
-        const slots = []; // 일정이 Y축(세로)으로 겹칠 때 빈 층(Slot)을 계산하기 위한 배열
+        const slots = [];
 
         return weekInstances.map((ev) => {
             const s = clearTime(new Date(ev.startDate));
@@ -94,7 +114,7 @@ function MonthView({
             // 다른 일정과 겹치지 않는 가장 낮은 Y축 빈자리(Slot) 탐색
             let slot = 0;
             while (slots[slot] !== undefined && slots[slot] >= sIdx) slot++;
-            slots[slot] = eIdx; // 해당 위치 선점
+            slots[slot] = eIdx;
 
             const isHighlighted = selectedTag ? ev.tag === selectedTag : true;
 
@@ -103,15 +123,19 @@ function MonthView({
                     key={`${ev.id}-${ev.startDate}`}
                     draggable
                     onDragStart={(e) => { e.dataTransfer.setData("eventId", ev.id); }}
-                    onTouchStart={(e) => handleEventTouchStart(e, ev)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => {
+                        e.stopPropagation();
+                        handleEventTouchStart(e, ev);
+                    }}
                     onTouchMove={handleEventTouchMove}
                     onTouchEnd={handleEventTouchEnd}
                     onContextMenu={(e) => e.preventDefault()}
                     className={`event-bar ${s >= weekStart ? 'start-round' : ''} ${e <= weekEnd ? 'end-round' : ''}`}
                     style={{
-                        left: `${sIdx * 14.28}%`,            // 일요일부터 sIdx 칸만큼 우측으로 띄움 (1칸 = 14.28%)
-                        width: `${(eIdx - sIdx + 1) * 14.28}%`, // 차지하는 일수만큼 너비 배정
-                        top: `${slot * 30}px`,               // 빈자리(Slot) 층수마다 30px씩 밑으로 내림
+                        left: `${sIdx * 14.28}%`,
+                        width: `${(eIdx - sIdx + 1) * 14.28}%`,
+                        top: `${slot * 30}px`,
                         backgroundColor: ev.color,
                         color: '#fff',
                         opacity: isHighlighted ? 1 : 0.15
@@ -135,8 +159,7 @@ function MonthView({
                 {weekdays.map((d, i) => <div key={i} className={`weekday-cell ${i===0?'sun':i===6?'sat':''}`} style={{textAlign:'center', padding:'15px'}}>{d}</div>)}
             </div>
 
-            {/* 달력 본문 그리드 */}
-            <div className="days-grid">
+            <div className="days-grid" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                 {weeks.map((week, wi) => (
                     <div key={wi} className="week-row">
                         {week.map((day, di) => {
@@ -144,17 +167,42 @@ function MonthView({
                             const dayEvents = allInstances.filter(ev => ev.startDate === dayStr);
                             const isSelected = isMobile && dayStr === mobileSelectedDate;
 
+                            // 🌟 핵심 로직: 현재 그리는 칸(dayStr)이 공휴일인지 훅을 통해 판별합니다!
+                            const holidayName = getHolidayName ? getHolidayName(dayStr) : null;
+
                             return (
                                 <div
                                     key={di}
-                                    data-date={dayStr} // 마우스/터치로 일정을 집어서 가져다 놨을 때(Drop) 날짜를 인식하기 위한 데이터 속성
-                                    className={`day-cell ${day.getMonth() !== currentDate.getMonth() ? 'other-month' : ''} ${di===0?'sun':di===6?'sat':''} ${clearTime(day) === todayTime ? 'today' : ''} ${isSelected ? 'mobile-selected' : ''}`}
+                                    data-date={dayStr}
+                                    // 🌟 휴일이면 'holiday' 클래스를 추가하여 CSS에서도 빨간색으로 제어되도록 보조합니다.
+                                    className={`day-cell ${day.getMonth() !== currentDate.getMonth() ? 'other-month' : ''} ${di===0?'sun':di===6?'sat':''} ${clearTime(day) === todayTime ? 'today' : ''} ${isSelected ? 'mobile-selected' : ''} ${holidayName ? 'holiday' : ''}`}
+                                    onMouseDown={() => startPress(dayStr, dayEvents)}
+                                    onMouseUp={cancelPress}
+                                    onMouseLeave={cancelPress}
+                                    onTouchStart={() => startPress(dayStr, dayEvents)}
+                                    onTouchEnd={cancelPress}
+                                    onClick={() => handleCellClick(dayStr)}
                                     onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
                                     onDragLeave={(e) => e.currentTarget.classList.remove('drag-over')}
                                     onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); onUpdateEventDate(e.dataTransfer.getData("eventId"), dayStr); }}
-                                    onClick={() => { if (isMobile) setMobileSelectedDate(dayStr); else onOpenModal(dayStr); }}
                                 >
-                                    <span className="day-number">{day.getDate()}</span>
+                                    {/* 🌟 날짜 렌더링 부위 개편: 휴일이면 숫자를 빨갛게 칠하고 이름을 표기합니다. */}
+                                    <div className="day-header-wrapper" style={{ display: 'flex', alignItems: 'baseline', gap: '4px', paddingLeft: '4px' }}>
+                                        <span
+                                            className="day-number"
+                                            style={{ color: holidayName ? 'var(--sun-red, #ff3b30)' : '' }}
+                                        >
+                                            {day.getDate()}
+                                        </span>
+                                        {holidayName && (
+                                            <span
+                                                className="holiday-name"
+                                                style={{ color: 'var(--sun-red, #ff3b30)', fontSize: '0.65rem', fontWeight: '700', opacity: 0.9 }}
+                                            >
+                                                {holidayName}
+                                            </span>
+                                        )}
+                                    </div>
 
                                     {/* 모바일 뷰일 경우 가로 막대 대신 작은 점(Dot) 최대 3개로 축약 표시 */}
                                     {isMobile && dayEvents.length > 0 && (

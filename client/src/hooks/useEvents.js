@@ -1,169 +1,240 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast'; // 🌟 예쁜 토스트 알림 라이브러리 추가
 
 /**
- * [useEvents Custom Hook (DB 연동 버전)]
- * 로컬 스토리지가 아닌, Node.js + SQLite 백엔드 서버와 통신하여 일정을 관리합니다.
- * 생성(POST), 수정(PUT), 삭제(DELETE), 조회(GET) 기능이 모두 포함되어 있습니다.
+ * 전각(Full-width) 숫자를 반각(Half-width)으로 예쁘게 바꿔주는 필터
+ * (예: ２０２６ -> 2026)
  */
-export function useEvents() {
+const cleanString = (str) => {
+    if (!str) return str;
+    return str.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+};
+const BASE_URL = process.env.REACT_APP_API_URL;
+const API_URL = `${BASE_URL}/api/events/`;
+
+export function useEvents(currentDate) {
     const [events, setEvents] = useState([]);
-    const API_URL = 'http://localhost:5000/api/events'; // Express 서버 주소
+    const [isLoading, setIsLoading] = useState(false); // 🌟 스켈레톤 UI를 위한 로딩 상태
 
     // ========================================================
-    // 1. 초기 로드: 서버(DB)에서 모든 일정 가져오기 (GET)
+    // 1. [가져오기] Range Fetching (현재 달 기준 앞뒤 1달치 데이터만 요청)
     // ========================================================
+    const fetchEvents = useCallback(async () => {
+        if (!currentDate) return;
+        setIsLoading(true); // 🌟 통신 시작 전 로딩 켜기 (스켈레톤 애니메이션 발동)
+
+        try {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const startOfRange = new Date(year, month - 1, 1);
+            const endOfRange = new Date(year, month + 2, 0);
+
+            const url = `${API_URL}?start=${encodeURIComponent(startOfRange.toISOString())}&end=${encodeURIComponent(endOfRange.toISOString())}`;
+
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (Array.isArray(data)) {
+                const parsedEvents = data.map(ev => {
+                    const startObj = new Date(ev.startAt);
+                    const endObj = ev.endAt ? new Date(ev.endAt) : startObj;
+
+                    // 반복 종료일(repeatEndDate)도 로컬 시간표(YYYY-MM-DD)로 변환!
+                    // 이걸 안 해주면 폼(EventForm)에서 날짜 입력칸이 망가져서 저장이 씹힙니다.
+                    let parsedRepeatEnd = ev.repeatEndDate;
+                    if (ev.repeatEndDate) {
+                        const rObj = new Date(ev.repeatEndDate);
+                        parsedRepeatEnd = `${rObj.getFullYear()}-${String(rObj.getMonth() + 1).padStart(2, '0')}-${String(rObj.getDate()).padStart(2, '0')}`;
+                    }
+
+                    return {
+                        ...ev,
+                        startDate: `${startObj.getFullYear()}-${String(startObj.getMonth() + 1).padStart(2, '0')}-${String(startObj.getDate()).padStart(2, '0')}`,
+                        startTime: `${String(startObj.getHours()).padStart(2, '0')}:${String(startObj.getMinutes()).padStart(2, '0')}`,
+                        endDate: `${endObj.getFullYear()}-${String(endObj.getMonth() + 1).padStart(2, '0')}-${String(endObj.getDate()).padStart(2, '0')}`,
+                        endTime: `${String(endObj.getHours()).padStart(2, '0')}:${String(endObj.getMinutes()).padStart(2, '0')}`,
+                        repeatEndDate: parsedRepeatEnd // 🌟 깔끔하게 변환된 값 적용
+                    };
+                });
+                setEvents(parsedEvents);
+            }
+        } catch (err) {
+            console.error("DB 불러오기 실패:", err);
+            toast.error("일정을 불러오지 못했습니다."); // 🌟 투박한 alert 대신 토스트 알림
+        } finally {
+            setIsLoading(false); // 🌟 통신이 끝나면 무조건 로딩 끄기
+        }
+    }, [currentDate]);
+
     useEffect(() => {
-        fetch(API_URL)
-            .then(res => res.json())
-            .then(data => {
-                if (Array.isArray(data)) setEvents(data);
-            })
-            .catch(err => console.error("DB 불러오기 실패:", err));
-    }, []);
+        fetchEvents();
+    }, [fetchEvents]);
 
-    // ========================================================
-    // [내부 유틸] DB에 저장/수정 요청을 보내는 공통 함수
-    // ========================================================
+    // DB 저장 공통 래퍼 함수
     const saveToDB = async (eventData, isUpdate = false) => {
         const url = isUpdate ? `${API_URL}/${eventData.id}` : API_URL;
         const method = isUpdate ? 'PUT' : 'POST';
-
-        try {
-            await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(eventData)
-            });
-        } catch (err) {
-            console.error("DB 저장 오류:", err);
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventData)
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'DB 저장 실패');
         }
     };
 
     // ========================================================
-    // 2. 일정 생성 및 수정 (POST, PUT)
+    // 2. [저장하기] 프론트 입력값을 절대 시간(UTC)으로 변환 후 저장
     // ========================================================
-    const handleSaveEvent = (data, mode = 'all', instanceDate = null) => {
-        const newStartMs = new Date(`${data.startDate}T${data.startTime || '00:00'}:00`).getTime();
-        const newEndMs = new Date(`${data.endDate || data.startDate}T${data.endTime || '23:59'}:00`).getTime();
+    const handleSaveEvent = async (data, mode = 'all', instanceDate = null) => {
+        const cleanData = {
+            ...data,
+            startDate: cleanString(data.startDate),
+            endDate: cleanString(data.endDate),
+            startTime: cleanString(data.startTime),
+            endTime: cleanString(data.endTime),
+            repeatEndDate: cleanString(data.repeatEndDate)
+        };
 
-        // [충돌 검사] 하루 종일 일정이 아니고, 같은 시간대에 겹치는 다른 일정이 있는지 확인
+        const startDateTime = new Date(`${cleanData.startDate}T${cleanData.startTime || '00:00'}:00`);
+        const endDateTime = new Date(`${cleanData.endDate || cleanData.startDate}T${cleanData.endTime || '23:59'}:00`);
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        // 겹침 검사
+        const newStartMs = startDateTime.getTime();
+        const newEndMs = endDateTime.getTime();
         const isOverlap = events.some(ev => {
-            if (ev.id === data.id || data.isAllDay || ev.isAllDay) return false;
+            if (ev.id === cleanData.id || cleanData.isAllDay || ev.isAllDay) return false;
             const evStartMs = new Date(`${ev.startDate}T${ev.startTime || '00:00'}:00`).getTime();
             const evEndMs = new Date(`${ev.endDate || ev.startDate}T${ev.endTime || '23:59'}:00`).getTime();
             return newStartMs < evEndMs && newEndMs > evStartMs;
         });
 
         if (isOverlap) {
-            alert('해당 시간대에 이미 겹치는 일정이 있습니다. 다른 시간을 선택해주세요.');
-            return false; // 방어 로직 발동
+            toast.error('해당 시간대에 이미 겹치는 일정이 있습니다.'); // 🌟 토스트 알림
+            return false;
         }
 
-        setEvents(prev => {
-            const idx = prev.findIndex(e => e.id === data.id);
+        let repeatEndUTC = null;
+        if (cleanData.repeatEndDate) {
+            repeatEndUTC = new Date(`${cleanData.repeatEndDate}T23:59:59`).toISOString();
+        }
 
-            // 기존에 존재하던 일정을 '수정(Update)'하는 경우
+        const payload = {
+            ...cleanData,
+            startAt: startDateTime.toISOString(),
+            endAt: endDateTime.toISOString(),
+            timezone: userTimezone,
+            repeatEndDate: repeatEndUTC
+        };
+
+        const idx = events.findIndex(e => e.id === payload.id);
+
+        try {
             if (idx > -1) {
                 if (mode === 'all') {
-                    // 전체 수정: 원본 기준으로 일괄 업데이트
-                    const next = [...prev];
-                    const originalEvent = prev[idx];
-                    const sMs = new Date(`${data.startDate}T00:00:00`).getTime();
-                    const eMs = new Date(`${data.endDate || data.startDate}T00:00:00`).getTime();
-                    const diffDays = Math.round((eMs - sMs) / (1000 * 60 * 60 * 24));
-
-                    const origStart = new Date(`${originalEvent.startDate}T00:00:00`);
-                    const origEnd = new Date(origStart);
-                    origEnd.setDate(origEnd.getDate() + diffDays);
-
-                    const updatedEvent = {
-                        ...data,
-                        startDate: originalEvent.startDate,
-                        endDate: `${origEnd.getFullYear()}-${String(origEnd.getMonth() + 1).padStart(2, '0')}-${String(origEnd.getDate()).padStart(2, '0')}`,
-                        excludedDates: originalEvent.excludedDates || [],
-                        repeatEndDate: originalEvent.repeatEndDate
+                    await saveToDB(payload, true);
+                } else if (mode === 'single' && instanceDate) {
+                    const originalEvent = events[idx];
+                    const currentExclusions = originalEvent.excludedDates || [];
+                    const updatedOriginalPayload = {
+                        ...originalEvent,
+                        startAt: new Date(`${originalEvent.startDate}T${originalEvent.startTime || '00:00'}:00`).toISOString(),
+                        endAt: new Date(`${originalEvent.endDate || originalEvent.startDate}T${originalEvent.endTime || '23:59'}:00`).toISOString(),
+                        excludedDates: [...currentExclusions, instanceDate]
                     };
-                    next[idx] = updatedEvent;
+                    const newStandalonePayload = { ...payload, id: null, repeatUnit: 'none', repeatValue: 1, excludedDates: [], repeatEndDate: null };
 
-                    saveToDB(updatedEvent, true); // 서버로 PUT 요청
-                    return next;
+                    await saveToDB(updatedOriginalPayload, true);
+                    await saveToDB(newStandalonePayload, false);
                 }
-                else if (mode === 'single' && instanceDate) {
-                    // 단일 수정: 해당 날짜만 예외 처리하고 새로운 일정을 독립적으로 생성
-                    const next = [...prev];
-                    const currentExclusions = next[idx].excludedDates || [];
-                    next[idx] = { ...next[idx], excludedDates: [...currentExclusions, instanceDate] };
-
-                    const newStandaloneEvent = {
-                        ...data, id: Date.now().toString(), repeatUnit: 'none', repeatValue: 1, excludedDates: [], repeatEndDate: null
-                    };
-
-                    saveToDB(next[idx], true); // 기존 반복 일정 예외처리 업데이트 (PUT)
-                    saveToDB(newStandaloneEvent, false); // 새 단일 일정 저장 (POST)
-                    return [...next, newStandaloneEvent];
-                }
+            } else {
+                const newEventPayload = { ...payload, id: null, excludedDates: [] };
+                await saveToDB(newEventPayload, false);
             }
 
-            // 완전히 새로운 일정 '생성(Create)'하는 경우
-            const newEvent = { ...data, excludedDates: [] };
-            saveToDB(newEvent, false); // 서버로 POST 요청
-            return [...prev, newEvent];
-        });
-
-        return true;
+            await fetchEvents();
+            toast.success('일정이 성공적으로 저장되었습니다!'); // 🌟 성공 토스트 알림
+            return true;
+        } catch (err) {
+            console.error("데이터 저장 중 오류 발생:", err);
+            toast.error('일정 저장에 실패했습니다.'); // 🌟 에러 토스트 알림
+            return false;
+        }
     };
 
     // ========================================================
-    // 3. 일정 삭제 (DELETE)
+    // 3. [삭제하기] 반복 일정 부분 삭제 및 "이 이후 삭제"
     // ========================================================
-    const handleDeleteEvent = (eventId, instanceDate, mode = 'all') => {
-        setEvents(prev => {
-            const targetIdx = prev.findIndex(ev => ev.id === eventId);
-            if (targetIdx === -1) return prev;
-            const targetEvent = prev[targetIdx];
+    const handleDeleteEvent = async (eventId, instanceDate, mode = 'all') => {
+        try {
+            const targetEv = events.find(e => e.id === eventId);
+            if (!targetEv) return;
 
-            // 단일 일정 삭제 또는 '모든 반복 일정 삭제'인 경우
-            if (mode === 'all' || !targetEvent.repeatUnit || targetEvent.repeatUnit === 'none') {
-                fetch(`${API_URL}/${eventId}`, { method: 'DELETE' }).catch(err => console.error("삭제 오류:", err));
-                return prev.filter(ev => ev.id !== eventId);
+            let url = `${API_URL}/${eventId}`;
+            const targetDate = cleanString(instanceDate);
+
+            if (mode === 'single' && targetDate) {
+                url += `?type=single&date=${targetDate}`;
+            } else if (mode === 'following' && targetDate) {
+                const targetStartObj = new Date(`${targetDate}T${targetEv.startTime || '00:00'}:00`);
+                url += `?type=following&targetStartAt=${encodeURIComponent(targetStartObj.toISOString())}`;
             }
 
-            // '이 일정만 삭제' -> 예외(excludedDates) 목록에 추가하여 숨김
-            if (mode === 'single') {
-                const next = [...prev];
-                const currentExclusions = next[targetIdx].excludedDates || [];
-                next[targetIdx] = { ...next[targetIdx], excludedDates: [...currentExclusions, instanceDate] };
-
-                saveToDB(next[targetIdx], true); // 변경된 예외 목록을 서버에 업데이트 (PUT)
-                return next;
+            const response = await fetch(url, { method: 'DELETE' });
+            if (response.ok) {
+                await fetchEvents();
+                toast.success('일정이 삭제되었습니다.'); // 🌟 성공 토스트 알림
+            } else {
+                const errorData = await response.json();
+                toast.error(errorData.error || '삭제에 실패했습니다.'); // 🌟 에러 토스트 알림
             }
-
-            // '이 이후 일정 삭제' -> 반복 종료일(repeatEndDate)을 앞당김
-            if (mode === 'future') {
-                const next = [...prev];
-                const targetDate = new Date(`${instanceDate}T00:00:00`);
-                targetDate.setDate(targetDate.getDate() - 1);
-                next[targetIdx] = {
-                    ...next[targetIdx],
-                    repeatEndDate: `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`
-                };
-
-                saveToDB(next[targetIdx], true); // 변경된 종료일을 서버에 업데이트 (PUT)
-                return next;
-            }
-            return prev;
-        });
+        } catch (err) {
+            console.error("삭제 중 오류 발생:", err);
+            toast.error('삭제 중 통신 오류가 발생했습니다.');
+        }
     };
 
     // ========================================================
-    // 4. 드래그 앤 드롭 일정 이동 (PUT)
+    // 4. [일괄 삭제] (기본 팝업 제거됨)
     // ========================================================
-    const handleUpdateEventDate = (eventId, newDate, newStartTime = null) => {
+    const handleDeleteAllOnDate = async (targetDate, eventsToDelete) => {
+        if (!eventsToDelete || eventsToDelete.length === 0) return;
+        // 🌟 window.confirm 삭제됨 (프론트 UI에서 처리하도록 위임)
+
+        const cleanDate = cleanString(targetDate);
+
+        try {
+            const deletePromises = eventsToDelete.map(ev => {
+                let url = `${API_URL}/${ev.id}`;
+                if (ev.repeatUnit && ev.repeatUnit !== 'none') url += `?type=single&date=${cleanDate}`;
+                return fetch(url, { method: 'DELETE' });
+            });
+
+            await Promise.all(deletePromises);
+            await fetchEvents();
+            toast.success(`${targetDate}의 모든 일정이 삭제되었습니다.`);
+        } catch (error) {
+            console.error("일괄 삭제 에러:", error);
+            toast.error("일부 일정 삭제에 실패했습니다.");
+        }
+    };
+
+    // ========================================================
+    // 5. [드래그 앤 드롭 업데이트] 달력에서 끌어다 놨을 때
+    // ========================================================
+    const handleUpdateEventDate = async (eventId, newDate, newStartTime = null) => {
+        const cleanDate = cleanString(newDate);
+        const cleanTime = cleanString(newStartTime);
+
         const targetEv = events.find(e => e.id === eventId);
         if (!targetEv) return;
 
+        if (cleanDate === targetEv.startDate && (!cleanTime || cleanTime === targetEv.startTime)) return;
         if (targetEv.repeatUnit && targetEv.repeatUnit !== 'none') {
-            alert('반복 일정은 드래그로 이동할 수 없습니다. 클릭해서 수정해주세요.');
+            toast.error('반복 일정은 드래그로 이동할 수 없습니다. 클릭해서 수정해주세요.'); // 🌟 토스트 알림
             return;
         }
 
@@ -171,7 +242,7 @@ export function useEvents() {
         const oldEnd = new Date(targetEv.endDate || targetEv.startDate);
         const diffDays = Math.round((oldEnd.getTime() - oldStart.getTime()) / (1000 * 60 * 60 * 24));
 
-        const updatedStart = new Date(newDate);
+        const updatedStart = new Date(cleanDate);
         const updatedEnd = new Date(updatedStart);
         updatedEnd.setDate(updatedEnd.getDate() + diffDays);
         const formattedEnd = `${updatedEnd.getFullYear()}-${String(updatedEnd.getMonth() + 1).padStart(2, '0')}-${String(updatedEnd.getDate()).padStart(2, '0')}`;
@@ -179,13 +250,13 @@ export function useEvents() {
         let updatedStartTime = targetEv.startTime || '00:00';
         let updatedEndTime = targetEv.endTime || '23:59';
 
-        if (newStartTime && !targetEv.isAllDay) {
-            updatedStartTime = newStartTime;
+        if (cleanTime && !targetEv.isAllDay) {
+            updatedStartTime = cleanTime;
             const oldStartMins = parseInt(targetEv.startTime.split(':')[0]) * 60 + parseInt(targetEv.startTime.split(':')[1]);
             const oldEndMins = parseInt(targetEv.endTime.split(':')[0]) * 60 + parseInt(targetEv.endTime.split(':')[1]);
             const durationMins = oldEndMins - oldStartMins;
 
-            const newStartMins = parseInt(newStartTime.split(':')[0]) * 60 + parseInt(newStartTime.split(':')[1]);
+            const newStartMins = parseInt(cleanTime.split(':')[0]) * 60 + parseInt(cleanTime.split(':')[1]);
             const newEndMins = newStartMins + durationMins;
 
             let newEndHour = Math.floor(newEndMins / 60);
@@ -194,7 +265,7 @@ export function useEvents() {
             updatedEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMinute).padStart(2, '0')}`;
         }
 
-        const newStartMs = new Date(`${newDate}T${updatedStartTime}:00`).getTime();
+        const newStartMs = new Date(`${cleanDate}T${updatedStartTime}:00`).getTime();
         const newEndMs = new Date(`${formattedEnd}T${updatedEndTime}:00`).getTime();
         const isOverlap = events.some(ev => {
             if (ev.id === eventId || targetEv.isAllDay || ev.isAllDay) return false;
@@ -204,19 +275,21 @@ export function useEvents() {
         });
 
         if (isOverlap) {
-            alert('이동하려는 시간대에 이미 겹치는 일정이 있습니다.');
+            toast.error('이동하려는 시간대에 이미 겹치는 일정이 있습니다.'); // 🌟 토스트 알림
             return;
         }
 
-        setEvents(prev => prev.map(ev => {
-            if (ev.id === eventId) {
-                const updatedEvent = { ...ev, startDate: newDate, endDate: formattedEnd, startTime: updatedStartTime, endTime: updatedEndTime };
-                saveToDB(updatedEvent, true); // 변경된 시간/날짜를 서버에 업데이트 (PUT)
-                return updatedEvent;
-            }
-            return ev;
-        }));
+        const updatedEvent = {
+            ...targetEv, startDate: cleanDate, endDate: formattedEnd, startTime: updatedStartTime, endTime: updatedEndTime
+        };
+
+        try {
+            await handleSaveEvent(updatedEvent, 'all');
+            // handleSaveEvent 내부에서 성공 토스트를 띄우므로 여기선 생략
+        } catch (err) {
+            console.error("이동 중 오류 발생:", err);
+        }
     };
 
-    return { events, handleSaveEvent, handleDeleteEvent, handleUpdateEventDate };
+    return { events, isLoading, fetchEvents, handleSaveEvent, handleDeleteEvent, handleUpdateEventDate, handleDeleteAllOnDate };
 }

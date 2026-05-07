@@ -1,60 +1,53 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
+import toast from 'react-hot-toast';
 
-/**
- * [useAlarms Custom Hook]
- * 앱 백그라운드에서 1분마다 현재 시간을 체크하여,
- * 사용자가 설정한 '알림 시간(Reminder)'에 도달한 일정이 있는지 검사하고
- * 브라우저 네이티브 푸시 알림(Notification)을 띄워주는 역할을 전담합니다.
- * @param {Array} events - 전체 일정 데이터 배열
- */
 export function useAlarms(events) {
-    const notifiedEvents = useRef(new Set());
-
+    // 🌟 1. 앱 실행 시 브라우저/OS에 알림 권한을 요청합니다.
     useEffect(() => {
-        if (Notification.permission !== 'granted') {
-            Notification.requestPermission();
+        if ('Notification' in window) {
+            if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
         }
     }, []);
 
     useEffect(() => {
         const checkAlarms = () => {
-            if (Notification.permission !== 'granted') return;
-
             const now = new Date();
-            const nowTime = now.getTime();
+            const nowTimeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
-            events.forEach(ev => {
-                if (!ev.startTime) return;
+            events.forEach(event => {
+                if (!event.isAlarmOn || !event.alarms || event.alarms.length === 0) return;
 
-                let reminderMs = 0;
-                const rVal = parseInt(ev.reminderValue, 10) || 0;
+                // 반복 일정과 단일 일정의 시작 시간(start_at)을 계산하는 로직이 있다고 가정
+                // (기존에 구현해두신 일정 시간 비교 로직을 여기에 그대로 쓰시면 됩니다!)
+                const eventStartTime = new Date(`${event.startDate}T${event.startTime}`);
 
-                if (ev.reminderUnit === 'm') reminderMs = rVal * 60 * 1000;
-                else if (ev.reminderUnit === 'h') reminderMs = rVal * 60 * 60 * 1000;
-                else if (ev.reminderUnit === 'd') reminderMs = rVal * 24 * 60 * 60 * 1000;
+                event.alarms.forEach(alarmMins => {
+                    const alarmTime = new Date(eventStartTime.getTime() - alarmMins * 60000);
+                    const alarmTimeStr = `${alarmTime.getFullYear()}-${String(alarmTime.getMonth()+1).padStart(2,'0')}-${String(alarmTime.getDate()).padStart(2,'0')} ${String(alarmTime.getHours()).padStart(2,'0')}:${String(alarmTime.getMinutes()).padStart(2,'0')}`;
 
-                if (reminderMs === 0 && rVal === 0) return;
+                    // 알람 시간과 현재 시간이 분 단위까지 일치하면 울림!
+                    if (nowTimeStr === alarmTimeStr) {
+                        const msg = `[${event.title}] 일정이 ${alarmMins === 0 ? '시작되었습니다!' : `${alarmMins}분 남았습니다!`}`;
 
-                const targetDate = new Date(`${ev.startDate}T${ev.startTime}:00`);
-                const targetTime = targetDate.getTime();
-                const alarmTime = targetTime - reminderMs;
+                        // 1. 기존 화면 토스트 알림
+                        toast.success(msg, { icon: '🔔', duration: 5000 });
 
-                if (nowTime >= alarmTime && nowTime <= alarmTime + 5 * 60 * 1000) {
-                    const uniqueEventKey = `${ev.id}-${ev.startDate}`;
-
-                    if (!notifiedEvents.current.has(uniqueEventKey)) {
-                        new Notification(`📅 [다가오는 일정] ${ev.title}`, {
-                            body: `일정이 ${rVal}${ev.reminderUnit === 'm' ? '분' : ev.reminderUnit === 'h' ? '시간' : '일'} 뒤에 시작됩니다!\n시간: ${ev.startTime}`
-                        });
-                        notifiedEvents.current.add(uniqueEventKey);
+                        // 🌟 2. OS 네이티브 푸시 알림 (브라우저 밖에서도 보임!)
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('My Calendar 알림', {
+                                body: msg,
+                                icon: '/favicon.ico', // public 폴더에 아이콘이 있다면 적용됩니다
+                                requireInteraction: true // 사용자가 닫기 전까지 알림 유지
+                            });
+                        }
                     }
-                }
+                });
             });
         };
 
-        const intervalId = setInterval(checkAlarms, 60000);
-        checkAlarms();
-
-        return () => clearInterval(intervalId);
+        const timer = setInterval(checkAlarms, 60000); // 1분마다 체크
+        return () => clearInterval(timer);
     }, [events]);
 }

@@ -2,16 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import MonthView from './calendar/MonthView';
 import TimeGridView from './calendar/TimeGridView';
 import { getFormatDate } from '../utils/calendarUtils';
+import { useHolidays } from '../hooks/useHolidays';
 
-/**
- * [CalendarSection]
- * 달력 영역의 최상위 래퍼(Wrapper) 컴포넌트입니다.
- * 1. 모바일 환경의 '롱프레스 드래그 앤 드롭' 및 '스와이프(Swipe)' 제스처를 감지합니다.
- * 2. 현재 뷰 모드(Month, Week, Day)에 따라 적절한 하위 달력 컴포넌트를 스위칭하여 렌더링합니다.
- */
-function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpdateEventDate, onPrev, onNext, viewMode }) {
+// 🌟 isLoading 프롭스 추가
+function CalendarSection({ currentDate, events, isLoading, selectedTag, onOpenModal, onUpdateEventDate, onPrev, onNext, viewMode, onDeleteAllOnDate }) {
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const [mobileSelectedDate, setMobileSelectedDate] = useState(getFormatDate(new Date()));
+    const { getHolidayName } = useHolidays(currentDate.getFullYear());
 
     // 윈도우 리사이즈 시 모바일 여부 판별
     useEffect(() => {
@@ -20,17 +17,14 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // =====================================================================
-    // [엔진 1] 모바일 전용 롱프레스 터치 드래그 앤 드롭 상태 관리
-    // =====================================================================
-    const [touchDragInfo, setTouchDragInfo] = useState(null); // 현재 드래그 중인 이벤트 정보
-    const dragTimeoutRef = useRef(null); // 롱프레스 타이머
+    const [touchDragInfo, setTouchDragInfo] = useState(null);
+    const dragTimeoutRef = useRef(null);
 
     // 터치 시작: 0.4초 동안 꾹 누르고 있으면 드래그 모드로 진입
     const handleEventTouchStart = (e, ev) => {
         const touch = e.touches[0];
         dragTimeoutRef.current = setTimeout(() => {
-            if (navigator.vibrate) navigator.vibrate(50); // 햅틱 피드백 지원
+            if (navigator.vibrate) navigator.vibrate(50);
             setTouchDragInfo({ id: ev.id, title: ev.title, color: ev.color, x: touch.clientX, y: touch.clientY });
         }, 400);
     };
@@ -55,7 +49,7 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
     useEffect(() => {
         const handleGlobalTouchMove = (e) => {
             if (!touchDragInfo) return;
-            e.preventDefault(); // 드래그 중에는 기본 화면 스크롤 강제 차단
+            e.preventDefault();
             const touch = e.touches[0];
             setTouchDragInfo(prev => ({ ...prev, x: touch.clientX, y: touch.clientY }));
         };
@@ -68,8 +62,8 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
             const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
 
             if (dropTarget) {
-                const dayCell = dropTarget.closest('.day-cell'); // 월간 뷰의 셀
-                const timeCol = dropTarget.closest('.time-column'); // 주간/일간 뷰의 세로 타임라인 기둥
+                const dayCell = dropTarget.closest('.day-cell');
+                const timeCol = dropTarget.closest('.time-column');
 
                 if (viewMode === 'month' && dayCell) {
                     // 월간 뷰: 해당 셀의 data-date 속성을 읽어와서 날짜만 업데이트
@@ -81,15 +75,15 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
                     if (dateStr) {
                         const rect = timeCol.getBoundingClientRect();
                         const y = touch.clientY - rect.top;
-                        const hourFloat = Math.max(0, y / 50); // 50px = 1시간
+                        const hourFloat = Math.max(0, y / 50);
                         const snappedHour = Math.floor(hourFloat);
-                        const snappedMin = (hourFloat % 1) >= 0.5 ? 30 : 0; // 30분 단위 스냅
+                        const snappedMin = (hourFloat % 1) >= 0.5 ? 30 : 0;
                         const newStartTime = `${String(Math.min(23, snappedHour)).padStart(2, '0')}:${String(snappedMin).padStart(2, '0')}`;
                         onUpdateEventDate(touchDragInfo.id, dateStr, newStartTime);
                     }
                 }
             }
-            setTouchDragInfo(null); // 드래그 상태 초기화
+            setTouchDragInfo(null);
         };
 
         // 이벤트 리스너 등록 (드래그 중에만 활성화하여 성능 최적화)
@@ -109,7 +103,7 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
     const [dragStart, setDragStart] = useState({ x: null, y: null });
     const [dragEnd, setDragEnd] = useState({ x: null, y: null });
     const [isDragging, setIsDragging] = useState(false);
-    const minSwipeDistance = 50; // 스와이프 인식 최소 거리(px)
+    const minSwipeDistance = 50;
 
     const handleDragStart = (clientX, clientY, target) => {
         // 이벤트 바나 모바일 리스트 내부를 터치한 경우는 달력 스와이프를 무시함
@@ -151,13 +145,18 @@ function CalendarSection({ currentDate, events, selectedTag, onOpenModal, onUpda
     const sharedProps = {
         currentDate, events, selectedTag, onOpenModal, onUpdateEventDate,
         isMobile, mobileSelectedDate, setMobileSelectedDate,
-        handleEventTouchStart, handleEventTouchMove, handleEventTouchEnd
+        handleEventTouchStart, handleEventTouchMove, handleEventTouchEnd,
+        onDeleteAllOnDate,
+        getHolidayName
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative' }} {...swipeHandlers}>
-
-            {/* 🌟 뷰 모드에 따라 알맞은 캘린더 컴포넌트 렌더링 */}
+        <div
+            // 로딩 중일 때 CSS 애니메이션을 발동시키는 클래스 결합
+            className={`calendar-section-wrapper ${isLoading ? 'is-loading' : ''}`}
+            style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative' }}
+            {...swipeHandlers}
+        >
             {viewMode === 'month' ? (
                 <MonthView {...sharedProps} />
             ) : (

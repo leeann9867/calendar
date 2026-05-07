@@ -1,256 +1,334 @@
-import React, { useState } from 'react';
-import { isLastInstance, getFormatDate } from '../../utils/calendarUtils';
-import WheelableTimeUnit from '../common/WheelableTimeUnit';
+import React, { useState, useEffect, useRef } from 'react';
+import { getFormatDate } from '../../utils/calendarUtils';
 
-/**
- * [EventForm Component]
- * 신규 일정을 생성하거나 기존 일정을 수정(Edit)하기 위한 폼 UI 컴포넌트입니다.
- * 날짜/시간 선택, 반복/알림 설정, 태그 추가, 메모 작성 및 색상 지정 등 모든 입력 로직을 통합 관리합니다.
- * @param {string} selectedDate - 달력에서 클릭하여 선택된 기본 날짜 (YYYY-MM-DD)
- * @param {Object|null} initData - 수정 모드일 경우 전달되는 기존 일정 데이터 (생성 모드면 null)
- * @param {Array} events - 기존에 등록된 전체 일정 배열 (태그 자동완성을 위해 사용)
- * @param {function} onClose - 모달 닫기 함수
- * @param {function} onSave - 변경된 일정 데이터를 부모로 전달하여 저장하는 함수
- * @param {function} onDelete - 일정을 삭제하는 함수
- */
-function EventForm({ selectedDate, initData, events, onClose, onSave, onDelete }) {
-    const fallbackDate = selectedDate || getFormatDate(new Date());
+const COLOR_PRESETS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#5856d6', '#af52de'];
+const DEFAULT_TAGS = ['공부', '기념일', '여가'];
 
-    // ==========================================
-    // [상태(State) 관리] 폼 입력 필드들의 상태값 모음
-    // ==========================================
-    const [title, setTitle] = useState(initData?.title || '');
-    const [startDate, setStartDate] = useState(initData?.startDate || fallbackDate);
-    const [endDate, setEndDate] = useState(initData?.endDate || fallbackDate);
-    const [isAllDay, setIsAllDay] = useState(initData?.isAllDay || false); // 하루 종일 여부
+const PRESET_ALARMS = [
+    { label: '정각', value: 0 },
+    { label: '10분 전', value: 10 },
+    { label: '1시간 전', value: 60 },
+    { label: '1일 전', value: 1440 }
+];
 
-    // 시/분 단위 제어를 위해 각각 분리하여 상태 저장
-    const initStart = (initData?.startTime || '09:00').split(':');
-    const [startHour, setStartHour] = useState(initStart[0]);
-    const [startMinute, setStartMinute] = useState(initStart[1]);
+const formatAlarmText = (mins) => {
+    if (mins === 0) return '정각';
+    if (mins % 1440 === 0) return `${mins / 1440}일 전`;
+    if (mins % 60 === 0) return `${mins / 60}시간 전`;
+    return `${mins}분 전`;
+};
 
-    const initEnd = (initData?.endTime || '10:00').split(':');
-    const [endHour, setEndHour] = useState(initEnd[0]);
-    const [endMinute, setEndMinute] = useState(initEnd[1]);
+const DateWheel = ({ value, onChange, minDate }) => {
+    const [yStr, mStr, dStr] = (value || getFormatDate(new Date())).split('-');
+    let year = parseInt(yStr, 10) || new Date().getFullYear();
+    let month = parseInt(mStr, 10) || 1;
+    let day = parseInt(dStr, 10) || 1;
 
-    const [reminderValue, setReminderValue] = useState(initData?.reminderValue || 1);
-    const [reminderUnit, setReminderUnit] = useState(initData?.reminderUnit || 'h');
-    const [repeatValue, setRepeatValue] = useState(initData?.repeatValue || 1);
-    const [repeatUnit, setRepeatUnit] = useState(initData?.repeatUnit || 'none');
-    const [tag, setTag] = useState(initData?.tag || '');
-    const [memo, setMemo] = useState(initData?.memo || '');
-
-    const COLOR_PRESETS = ['#007aff', '#ff3b30', '#34c759', '#ff9500', '#af52de', '#ffcc00', '#8e8e93'];
-    const [color, setColor] = useState(initData?.color || COLOR_PRESETS[0]);
-
-    // 다중 반복 일정 수정/삭제 시 팝업될 서브 모달 상태
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [showSaveModal, setShowSaveModal] = useState(false);
-
-    // 태그 자동완성 드롭박스 생성을 위해 전체 이벤트에서 중복 없는 태그 리스트 추출
-    const existingTags = Array.from(new Set((events || []).filter(ev => ev.tag && ev.tag.trim() !== '').map(ev => ev.tag)));
-
-    // ==========================================
-    // [제어 로직] 날짜 및 시간 동기화 스마트 알고리즘
-    // ==========================================
-
-    // 시작 날짜 변경 시, 종료 날짜가 시작 날짜보다 과거로 설정되지 않도록 자동 방어
-    const handleStartDateChange = (e) => {
-        const newStart = e.target.value;
-        setStartDate(newStart);
-        if (newStart > endDate) setEndDate(newStart);
+    const updateDate = (y, m, d) => {
+        const dateObj = new Date(y, m - 1, d);
+        const minObj = minDate ? new Date(minDate) : new Date('1970-01-01');
+        if (dateObj < minObj) onChange(getFormatDate(minObj));
+        else onChange(getFormatDate(dateObj));
     };
 
-    // 시작 시간(시/분)이 변경되면 자동으로 '1시간 뒤'를 계산하여 종료 시간(End Time)에 세팅
-    const syncEndTime = (newHour, newMin) => {
-        const startObj = new Date(`${startDate}T${newHour}:${newMin}:00`);
-        startObj.setHours(startObj.getHours() + 1); // 1시간을 더함
-
-        const y = startObj.getFullYear();
-        const m = String(startObj.getMonth() + 1).padStart(2, '0');
-        const d = String(startObj.getDate()).padStart(2, '0');
-
-        // 날짜가 자정을 넘겨 다음 날이 되었다면 종료 날짜도 함께 갱신
-        setEndDate(`${y}-${m}-${d}`);
-        setEndHour(String(startObj.getHours()).padStart(2, '0'));
-        setEndMinute(String(startObj.getMinutes()).padStart(2, '0'));
+    const handleWheel = (e, type) => {
+        const step = e.deltaY > 0 ? -1 : 1;
+        if (type === 'y') updateDate(year + step, month, day);
+        else if (type === 'm') updateDate(year, month + step, day);
+        else updateDate(year, month, day + step);
     };
 
-    const handleStartHourChange = (newVal) => {
-        setStartHour(newVal);
-        syncEndTime(newVal, startMinute);
-    };
-
-    const handleStartMinuteChange = (newVal) => {
-        setStartMinute(newVal);
-        syncEndTime(startHour, newVal);
-    };
-
-    // ==========================================
-    // [데이터 전송 로직] 생성 및 수정 패킹
-    // ==========================================
-    const getUpdatedData = () => ({
-        id: initData?.id || Date.now().toString(), // 고유 ID 부여
-        title, startDate, endDate, isAllDay,
-        startTime: isAllDay ? null : `${startHour}:${startMinute}`, // 하루 종일이면 시간 무시
-        endTime: isAllDay ? null : `${endHour}:${endMinute}`,
-        reminderValue, reminderUnit, repeatValue, repeatUnit, tag, color, memo
-    });
-
-    const onClickSave = () => {
-        if (!title.trim()) return alert('제목을 입력해주세요.');
-        // 반복 설정이 되어 있는 일정 묶음 중 남은 일정이 여러 개일 경우 서브 모달창 분기 처리
-        if (initData && initData.repeatUnit && initData.repeatUnit !== 'none' && !isLastInstance(initData)) {
-            setShowSaveModal(true);
-        } else {
-            onSave(getUpdatedData(), 'all');
+    const startY = useRef(0);
+    const handleDragStart = (e) => { startY.current = e.clientY ?? (e.touches && e.touches[0].clientY); };
+    const handleDragMove = (e, type) => {
+        if (!startY.current) return;
+        const y = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : null);
+        if (y === null) return;
+        const diff = y - startY.current;
+        if (Math.abs(diff) > 15) {
+            const step = diff > 0 ? -1 : 1;
+            if (type === 'y') updateDate(year + step, month, day);
+            else if (type === 'm') updateDate(year, month + step, day);
+            else updateDate(year, month, day + step);
+            startY.current = y;
         }
     };
+    const handleDragEnd = () => { startY.current = 0; };
 
-    const onClickDelete = () => {
-        if (!initData) return;
-        if (isLastInstance(initData)) {
-            if (window.confirm("일정을 삭제하시겠습니까?")) onDelete(initData.id, selectedDate, 'all');
+    return (
+        <div className="custom-time-picker" style={{ gap: '2px', padding: '4px 8px' }}>
+            <div className="time-wheel-unit" onWheel={(e) => handleWheel(e, 'y')} onMouseDown={handleDragStart} onMouseMove={(e)=>handleDragMove(e, 'y')} onMouseUp={handleDragEnd} onMouseLeave={handleDragEnd} onTouchStart={handleDragStart} onTouchMove={(e)=>handleDragMove(e, 'y')} onTouchEnd={handleDragEnd}>{year}</div>
+            <span style={{fontWeight: 800, color: 'var(--text-muted)', margin: '0 2px'}}>.</span>
+            <div className="time-wheel-unit" onWheel={(e) => handleWheel(e, 'm')} onMouseDown={handleDragStart} onMouseMove={(e)=>handleDragMove(e, 'm')} onMouseUp={handleDragEnd} onMouseLeave={handleDragEnd} onTouchStart={handleDragStart} onTouchMove={(e)=>handleDragMove(e, 'm')} onTouchEnd={handleDragEnd}>{String(month).padStart(2, '0')}</div>
+            <span style={{fontWeight: 800, color: 'var(--text-muted)', margin: '0 2px'}}>.</span>
+            <div className="time-wheel-unit" onWheel={(e) => handleWheel(e, 'd')} onMouseDown={handleDragStart} onMouseMove={(e)=>handleDragMove(e, 'd')} onMouseUp={handleDragEnd} onMouseLeave={handleDragEnd} onTouchStart={handleDragStart} onTouchMove={(e)=>handleDragMove(e, 'd')} onTouchEnd={handleDragEnd}>{String(day).padStart(2, '0')}</div>
+        </div>
+    );
+};
+
+const TimeWheel = ({ value, onChange }) => {
+    const [hourStr, minStr] = (value || '09:00').split(':');
+    let hour = parseInt(hourStr, 10); let min = parseInt(minStr, 10);
+    if (isNaN(hour)) hour = 9; if (isNaN(min)) min = 0;
+
+    const updateTime = (h, m) => {
+        const newH = String((h + 24) % 24).padStart(2, '0');
+        const newM = String((m + 60) % 60).padStart(2, '0');
+        onChange(`${newH}:${newM}`);
+    };
+
+    const handleWheel = (e, type) => {
+        const step = e.deltaY > 0 ? -1 : 1;
+        if (type === 'h') updateTime(hour + step, min); else updateTime(hour, min + step);
+    };
+
+    const startY = useRef(0);
+    const handleDragStart = (e) => { startY.current = e.clientY ?? (e.touches && e.touches[0].clientY); };
+    const handleDragMove = (e, type) => {
+        if (!startY.current) return;
+        const y = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : null);
+        if (y === null) return;
+        const diff = y - startY.current;
+        if (Math.abs(diff) > 15) {
+            const step = diff > 0 ? -1 : 1;
+            if (type === 'h') updateTime(hour + step, min); else updateTime(hour, min + step);
+            startY.current = y;
+        }
+    };
+    const handleDragEnd = () => { startY.current = 0; };
+
+    return (
+        <div className="custom-time-picker">
+            <div className="time-wheel-unit" onWheel={(e) => handleWheel(e, 'h')} onMouseDown={handleDragStart} onMouseMove={(e)=>handleDragMove(e, 'h')} onMouseUp={handleDragEnd} onMouseLeave={handleDragEnd} onTouchStart={handleDragStart} onTouchMove={(e)=>handleDragMove(e, 'h')} onTouchEnd={handleDragEnd}>{String(hour).padStart(2, '0')}</div>
+            <span style={{fontWeight: 800, color: 'var(--text-main)'}}>:</span>
+            <div className="time-wheel-unit" onWheel={(e) => handleWheel(e, 'm')} onMouseDown={handleDragStart} onMouseMove={(e)=>handleDragMove(e, 'm')} onMouseUp={handleDragEnd} onMouseLeave={handleDragEnd} onTouchStart={handleDragStart} onTouchMove={(e)=>handleDragMove(e, 'm')} onTouchEnd={handleDragEnd}>{String(min).padStart(2, '0')}</div>
+        </div>
+    );
+};
+
+function EventForm({ selectedDate, initData, onSave, onDelete, onClose, events, openConfirm }) {
+
+    // 🌟 [버그 픽스] 알림 파서(해독기) 알고리즘 수정
+    const parsedAlarms = (() => {
+        if (!initData) return [10]; // 오직 '+버튼'으로 새 일정을 만들 때만 10분 전 기본값!
+
+        const raw = initData.alarms ?? initData.alarm;
+        if (raw === '' || raw === null || raw === undefined) return []; // 빈 값이면 철저하게 빈 배열! (10분 좀비 차단)
+
+        if (Array.isArray(raw)) return raw.map(Number);
+        if (typeof raw === 'number') return [raw];
+        if (typeof raw === 'string') {
+            try {
+                const p = JSON.parse(raw);
+                if(Array.isArray(p)) return p.map(Number);
+                return raw.split(',').map(Number).filter(n => !isNaN(n));
+            } catch {
+                return raw.split(',').map(Number).filter(n => !isNaN(n));
+            }
+        }
+        return [];
+    })();
+
+    const parsedIsAlarmOn = initData
+        ? (initData.isAlarmOn === true || initData.isAlarmOn === 1 || initData.isAlarmOn === 'true')
+        : true; // 새 일정일 땐 ON이 기본
+
+    const [formData, setFormData] = useState({
+        title: '', startDate: selectedDate || getFormatDate(new Date()), startTime: '09:00',
+        endDate: selectedDate || getFormatDate(new Date()), endTime: '10:00',
+        isAllDay: false, tag: '', color: '#007aff', memo: '',
+        repeatUnit: 'none', repeatValue: 1, repeatEndDate: '',
+        ...initData,
+        isAlarmOn: parsedIsAlarmOn,
+        alarms: parsedAlarms
+    });
+
+    const [customAlarmVal, setCustomAlarmVal] = useState(30);
+    const [customAlarmUnit, setCustomAlarmUnit] = useState(1);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    };
+
+    const handleTimeChange = (name, val) => setFormData(prev => ({ ...prev, [name]: val }));
+    const handleColorClick = (color) => setFormData(prev => ({ ...prev, color }));
+
+    const handleAlarmToggle = (minutes) => {
+        setFormData(prev => {
+            const currentAlarms = prev.alarms || [];
+            if (currentAlarms.includes(minutes)) {
+                return { ...prev, alarms: currentAlarms.filter(a => a !== minutes) };
+            } else {
+                return { ...prev, alarms: [...currentAlarms, minutes].sort((a,b) => a-b) };
+            }
+        });
+    };
+
+    const addCustomAlarm = () => {
+        if (!customAlarmVal || customAlarmVal <= 0) return;
+        const minutes = parseInt(customAlarmVal, 10) * customAlarmUnit;
+        setFormData(prev => {
+            const currentAlarms = prev.alarms || [];
+            if (!currentAlarms.includes(minutes)) {
+                return { ...prev, alarms: [...currentAlarms, minutes].sort((a,b) => a-b) };
+            }
+            return prev;
+        });
+    };
+
+    const getRankedTags = () => {
+        const counts = {};
+        events.forEach(ev => {
+            if (ev.tag && ev.tag.trim() !== '') counts[ev.tag] = (counts[ev.tag] || 0) + 1;
+        });
+        const allTagsSet = new Set([...Object.keys(counts), ...DEFAULT_TAGS]);
+        return Array.from(allTagsSet).sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+    };
+
+    const rankedTags = getRankedTags();
+
+    const getMinRepeatDate = () => {
+        if (!formData.startDate) return getFormatDate(new Date());
+        const d = new Date(formData.startDate);
+        if (formData.repeatUnit === 'daily') d.setDate(d.getDate() + 1);
+        else if (formData.repeatUnit === 'weekly') d.setDate(d.getDate() + 7);
+        else if (formData.repeatUnit === 'monthly') d.setMonth(d.getMonth() + 1);
+        return getFormatDate(d);
+    };
+
+    useEffect(() => {
+        if (formData.repeatUnit !== 'none') {
+            const minDate = getMinRepeatDate();
+            if (!formData.repeatEndDate || formData.repeatEndDate < minDate) {
+                setFormData(prev => ({ ...prev, repeatEndDate: minDate }));
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.repeatUnit, formData.startDate]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!formData.title.trim()) {
+            openConfirm("입력 오류", "일정 제목을 입력해주세요.", []); return;
+        }
+
+        // 🌟 [버그 픽스] 알림이 꺼져있다면 DB로 보낼 때 알림 데이터를 싹 다 비워버립니다! (유령 알람 차단)
+        const payload = {
+            ...formData,
+            alarms: formData.isAlarmOn && formData.alarms && formData.alarms.length > 0
+                ? formData.alarms.sort((a,b)=>a-b).join(',')
+                : '',
+            isAlarmOn: formData.isAlarmOn ? 1 : 0
+        };
+
+        if (payload.id && payload.repeatUnit !== 'none') {
+            openConfirm("반복 일정 수정", "수정할 범위를 선택해주세요.", [
+                { label: "이 일정만 수정", action: () => onSave(payload, 'single', payload.startDate), className: "sub-btn" },
+                { label: "모든 반복 일정 수정", action: () => onSave(payload, 'all'), className: "sub-btn" }
+            ]);
+        } else onSave(payload, 'all');
+    };
+
+    const handleDeleteClick = () => {
+        if (!formData.id) return;
+        if (formData.repeatUnit !== 'none') {
+            openConfirm("반복 일정 삭제", "삭제할 범위를 선택해주세요.", [
+                { label: "이 일정만 삭제", action: () => onDelete(formData.id, formData.startDate, 'single'), className: "sub-btn delete-all" },
+                { label: "이 시점 이후 삭제", action: () => onDelete(formData.id, formData.startDate, 'following'), className: "sub-btn delete-all" },
+                { label: "전체 삭제", action: () => onDelete(formData.id, null, 'all'), className: "sub-btn delete-all" }
+            ]);
         } else {
-            setShowDeleteModal(true);
+            openConfirm("일정 삭제", "정말 이 일정을 삭제하시겠습니까?", [
+                { label: "삭제하기", action: () => onDelete(formData.id, null, 'all'), className: "sub-btn delete-all" }
+            ]);
         }
     };
 
     return (
-        <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
             <div className="modal-header-samsung">
-                <input placeholder="제목 추가" value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+                <input name="title" value={formData.title} onChange={handleChange} placeholder="일정 제목" autoFocus />
             </div>
+
             <div className="samsung-body">
-
-                {/* 하루 종일 토글 */}
-                <div className="samsung-row">
-                    <span className="icon-area">⏰</span>
-                    <div className="content-area" style={{ justifyContent: 'space-between' }}>
-                        <span style={{ fontWeight: 700 }}>하루 종일</span>
-                        <input type="checkbox" checked={isAllDay} onChange={e => setIsAllDay(e.target.checked)} style={{ width: '20px', height: '20px' }} />
-                    </div>
-                </div>
-
-                {/* 날짜 및 커스텀 시간 휠 */}
-                <div className="samsung-row">
-                    <span className="icon-area">🕒</span>
+                <div className="samsung-row align-top">
+                    <div className="icon-area" style={{ marginTop: '10px' }}>🕒</div>
                     <div className="content-area custom-time-area">
-                        <div className="time-block">
-                            <input type="date" value={startDate} onChange={handleStartDateChange} className="date-input" />
-                            {!isAllDay && (
-                                <div className="custom-time-picker">
-                                    {/* 외부에 분리해 둔 드래그/휠 컴포넌트 재사용 */}
-                                    <WheelableTimeUnit value={startHour} max={23} onChange={handleStartHourChange} />
-                                    <span style={{ fontWeight: '800', margin: '0 2px' }}>:</span>
-                                    <WheelableTimeUnit value={startMinute} max={59} onChange={handleStartMinuteChange} />
+                        <div className="time-block"><DateWheel value={formData.startDate} onChange={(v) => handleTimeChange('startDate', v)} />{!formData.isAllDay && <TimeWheel value={formData.startTime} onChange={(v) => handleTimeChange('startTime', v)} />}</div>
+                        <div className="time-block"><span className="time-divider">~</span><DateWheel value={formData.endDate} onChange={(v) => handleTimeChange('endDate', v)} minDate={formData.startDate} />{!formData.isAllDay && <TimeWheel value={formData.endTime} onChange={(v) => handleTimeChange('endTime', v)} />}</div>
+                    </div>
+                </div>
+
+                <div className="samsung-row">
+                    <div className="icon-area">✅</div>
+                    <div className="content-area"><label style={{ cursor: 'pointer', fontSize: '1rem', fontWeight: '600', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}><input type="checkbox" name="isAllDay" checked={formData.isAllDay} onChange={handleChange} style={{ transform: 'scale(1.2)' }} />하루 종일</label></div>
+                </div>
+
+                <div className="samsung-row align-top">
+                    <div className="icon-area" style={{ marginTop: '10px' }}>🔔</div>
+                    <div className="content-area" style={{ flexWrap: 'wrap', gap: '10px', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
+                        <label style={{ cursor: 'pointer', fontSize: '1rem', fontWeight: '600', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input type="checkbox" name="isAlarmOn" checked={formData.isAlarmOn} onChange={handleChange} style={{ transform: 'scale(1.2)' }} />
+                            알림 켜기
+                        </label>
+                        {formData.isAlarmOn && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', paddingLeft: '15px', borderLeft: '2px solid var(--border-color)', marginLeft: '8px', marginTop: '5px' }}>
+                                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                                    {PRESET_ALARMS.map(preset => (
+                                        <label key={preset.value} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.95rem', color: 'var(--text-main)', cursor: 'pointer' }}><input type="checkbox" checked={(formData.alarms || []).includes(preset.value)} onChange={() => handleAlarmToggle(preset.value)} />{preset.label}</label>
+                                    ))}
                                 </div>
-                            )}
-                        </div>
-                        <div className="time-divider">~</div>
-                        <div className="time-block">
-                            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="date-input" />
-                            {!isAllDay && (
-                                <div className="custom-time-picker">
-                                    <WheelableTimeUnit value={endHour} max={23} onChange={setEndHour} />
-                                    <span style={{ fontWeight: '800', margin: '0 2px' }}>:</span>
-                                    <WheelableTimeUnit value={endMinute} max={59} onChange={setEndMinute} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <input type="number" className="reminder-num" value={customAlarmVal} onChange={e => setCustomAlarmVal(e.target.value)} min="1" style={{ width: '60px' }} />
+                                    <select className="reminder-select" value={customAlarmUnit} onChange={e => setCustomAlarmUnit(Number(e.target.value))}><option value={1}>분 전</option><option value={60}>시간 전</option><option value={1440}>일 전</option></select>
+                                    <button type="button" onClick={addCustomAlarm} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--sat-blue)', background: 'transparent', color: 'var(--sat-blue)', fontWeight: 'bold', cursor: 'pointer' }}>추가</button>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 반복 주기 설정 */}
-                <div className="samsung-row">
-                    <span className="icon-area">🔁</span>
-                    <div className="content-area custom-reminder-area">
-                        <input type="number" value={repeatValue} disabled={repeatUnit === 'none'} onChange={e => setRepeatValue(Math.max(1, e.target.value))} className="reminder-num" style={{ opacity: repeatUnit === 'none' ? 0.3 : 1 }} />
-                        <select value={repeatUnit} onChange={e => setRepeatUnit(e.target.value)} className="reminder-select">
-                            <option value="none">반복 안 함</option><option value="day">일 마다</option><option value="week">주 마다</option><option value="month">개월 마다</option><option value="year">년 마다</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* 알림 설정 */}
-                <div className="samsung-row">
-                    <span className="icon-area">🔔</span>
-                    <div className="content-area custom-reminder-area">
-                        <input type="number" value={reminderValue} onChange={e => setReminderValue(Math.max(0, e.target.value))} className="reminder-num" />
-                        <select value={reminderUnit} onChange={e => setReminderUnit(e.target.value)} className="reminder-select">
-                            <option value="m">분 전</option><option value="h">시간 전</option><option value="d">일 전</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* 태그 작성 영역 */}
-                <div className="samsung-row">
-                    <span className="icon-area">🏷️</span>
-                    <div className="content-area" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                        <input type="text" placeholder="태그 추가 (공백 가능)" value={tag} onChange={e => setTag(e.target.value)} style={{ flex: 1, background: 'transparent', color: 'var(--text-main)', fontSize: '1.05rem', border: 'none', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', outline: 'none' }} />
-                        {existingTags.length > 0 && (
-                            <select className="reminder-select" value={existingTags.includes(tag) ? tag : ""} onChange={e => setTag(e.target.value)} style={{ padding: '6px', fontSize: '0.9rem', maxWidth: '130px' }}>
-                                <option value="" disabled>기존 태그...</option>
-                                {existingTags.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                                {(formData.alarms || []).length > 0 && (
+                                    <div className="tag-list" style={{ marginTop: '5px' }}>
+                                        {[...(formData.alarms || [])].sort((a,b)=>a-b).map(a => (
+                                            <div key={a} className="tag-item active" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>{formatAlarmText(a)}<span style={{ cursor: 'pointer', fontWeight: 'bold', marginLeft: '2px' }} onClick={() => handleAlarmToggle(a)}>✕</span></div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* 메모 작성 영역 */}
-                <div className="samsung-row align-top">
-                    <span className="icon-area" style={{marginTop: '5px'}}>📝</span>
-                    <div className="content-area">
-                        <textarea placeholder="일정 메모 추가..." value={memo} onChange={e => setMemo(e.target.value)} className="memo-input" rows="3" />
-                    </div>
-                </div>
-
-                {/* 색상 선택 팔레트 영역 */}
                 <div className="samsung-row">
-                    <span className="icon-area">🎨</span>
-                    <div className="content-area color-picker-area">
-                        {COLOR_PRESETS.map(presetColor => (
-                            <div key={presetColor} className={`color-preset-circle ${color === presetColor ? 'active' : ''}`} style={{ backgroundColor: presetColor }} onClick={() => setColor(presetColor)} />
-                        ))}
+                    <div className="icon-area">🏷️</div>
+                    <div className="content-area" style={{ display: 'flex', gap: '8px', width: '100%', flexWrap: 'wrap' }}>
+                        <input type="text" name="tag" className="date-input" value={formData.tag} onChange={handleChange} placeholder="태그 입력 (선택)" style={{ flex: '1 1 120px', minWidth: 0 }} />
+                        <select className="reminder-select" style={{ flex: '1 1 100px', minWidth: 0 }} value={rankedTags.includes(formData.tag) ? formData.tag : ""} onChange={(e) => setFormData(prev => ({ ...prev, tag: e.target.value }))}><option value="" disabled>기존 태그 선택</option>{rankedTags.map(t => <option key={t} value={t}>{t}</option>)}</select>
                     </div>
                 </div>
+
+                <div className="samsung-row align-top">
+                    <div className="icon-area" style={{ marginTop: '10px' }}>🔁</div>
+                    <div className="content-area" style={{ flexWrap: 'wrap', gap: '10px', flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <select name="repeatUnit" className="reminder-select" value={formData.repeatUnit} onChange={handleChange}><option value="none">반복 안 함</option><option value="daily">일</option><option value="weekly">주</option><option value="monthly">월</option></select>
+                        {formData.repeatUnit !== 'none' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '5px' }}>
+                                <input type="number" name="repeatValue" className="reminder-num" value={formData.repeatValue} onChange={handleChange} min="1" />
+                                <span style={{ fontWeight: 600, color: 'var(--text-main)', marginRight: '10px' }}>{formData.repeatUnit === 'daily' ? '일마다' : formData.repeatUnit === 'weekly' ? '주마다' : '개월마다'}</span>
+                                <span className="time-divider" style={{ paddingLeft: 0 }}>종료:</span>
+                                <DateWheel value={formData.repeatEndDate} onChange={(v) => handleTimeChange('repeatEndDate', v)} minDate={getMinRepeatDate()} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="samsung-row"><div className="icon-area">🎨</div><div className="content-area color-picker-area">{COLOR_PRESETS.map(c => <div key={c} className={`color-preset-circle ${formData.color === c ? 'active' : ''}`} style={{ backgroundColor: c }} onClick={() => handleColorClick(c)} />)}</div></div>
+                <div className="samsung-row align-top"><div className="icon-area" style={{ marginTop: '10px' }}>📝</div><div className="content-area"><textarea name="memo" className="memo-input" value={formData.memo} onChange={handleChange} placeholder="메모를 입력하세요..." /></div></div>
             </div>
 
-            {/* 하단 제어 버튼 */}
             <div className="modal-footer">
-                {initData && <button className="btn btn-delete" onClick={onClickDelete}>삭제</button>}
-                <button className="btn btn-cancel" onClick={onClose}>취소</button>
-                <button className="btn btn-save" onClick={onClickSave}>저장</button>
+                {formData.id && <button type="button" onClick={handleDeleteClick} className="btn btn-delete">삭제</button>}
+                <button type="button" onClick={onClose} className="btn btn-cancel">취소</button>
+                <button type="submit" className="btn btn-save">저장</button>
             </div>
-
-            {/* 반복 일정 전용 서브 모달 (수정/삭제 범위 선택창) */}
-            {showDeleteModal && (
-                <div className="sub-modal-overlay">
-                    <div className="sub-modal-content">
-                        <h4>반복 일정 삭제</h4>
-                        <div className="sub-modal-buttons">
-                            <button className="sub-btn" onClick={() => onDelete(initData.id, selectedDate, 'single')}>이 일정만 삭제</button>
-                            <button className="sub-btn" onClick={() => onDelete(initData.id, selectedDate, 'future')}>이 이후 일정 삭제</button>
-                            <button className="sub-btn delete-all" onClick={() => onDelete(initData.id, selectedDate, 'all')}>연관된 모든 일정 삭제</button>
-                        </div>
-                        <button className="sub-btn-cancel" onClick={() => setShowDeleteModal(false)}>취소</button>
-                    </div>
-                </div>
-            )}
-            {showSaveModal && (
-                <div className="sub-modal-overlay">
-                    <div className="sub-modal-content">
-                        <h4>반복 일정 수정</h4>
-                        <p>반복되는 일정입니다. 어떻게 수정하시겠습니까?</p>
-                        <div className="sub-modal-buttons">
-                            <button className="sub-btn" onClick={() => onSave(getUpdatedData(), 'single', selectedDate)}>이 일정만 수정</button>
-                            <button className="sub-btn" onClick={() => onSave(getUpdatedData(), 'all')}>연관된 모든 일정 수정</button>
-                        </div>
-                        <button className="sub-btn-cancel" onClick={() => setShowSaveModal(false)}>취소</button>
-                    </div>
-                </div>
-            )}
-        </div>
+        </form>
     );
 }
 

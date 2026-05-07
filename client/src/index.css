@@ -172,7 +172,7 @@ body {
 .time-event-block > div { width: 100%; overflow: hidden !important; white-space: nowrap !important; text-overflow: ellipsis !important; }
 
 /* =========================================
-   6. 모달 공통 (편집/조회)
+   6. 모달 공통 (편집/조회) - 개편된 UI 반영
 ========================================= */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
 .modal-content { background: var(--bg-card); width: 90%; max-width: 500px; padding: 35px; border-radius: 24px; box-shadow: 0 24px 80px rgba(0,0,0,0.3); animation: modalFadeIn 0.2s ease-out; position: relative; }
@@ -338,4 +338,52 @@ body {
   .mobile-dots { display: flex; }
   .mobile-event-list-container { display: flex; }
   .day-cell.mobile-selected { background-color: var(--event-blue); }
+}
+
+/* =========================================================
+   🌟 UX 개선: 스켈레톤 로딩 애니메이션
+   ========================================================= */
+.calendar-section-wrapper {
+  transition: opacity 0.3s ease;
+}
+
+/* 로딩 중일 때 이벤트 막대나 점들을 살짝 숨기거나 흐리게 처리 */
+.calendar-section-wrapper.is-loading .events-layer,
+.calendar-section-wrapper.is-loading .mobile-dots,
+.calendar-section-wrapper.is-loading .time-event-block,
+.calendar-section-wrapper.is-loading .all-day-item {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 달력 칸(day-cell)에 스와이프되는 빛(Shimmer) 효과 부여 */
+.calendar-section-wrapper.is-loading .day-cell,
+.calendar-section-wrapper.is-loading .time-column {
+  background: linear-gradient(
+          120deg,
+          rgba(220, 224, 232, 0.4) 25%,
+          rgba(240, 244, 248, 0.8) 50%,
+          rgba(220, 224, 232, 0.4) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+  color: transparent !important; /* 숫자도 잠시 안 보이게 처리 */
+}
+
+/* 다크 모드용 스켈레톤 색상 */
+[data-theme='dark'] .calendar-section-wrapper.is-loading .day-cell,
+[data-theme='dark'] .calendar-section-wrapper.is-loading .time-column {
+  background: linear-gradient(
+          120deg,
+          rgba(40, 44, 52, 0.4) 25%,
+          rgba(60, 64, 72, 0.8) 50%,
+          rgba(40, 44, 52, 0.4) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }

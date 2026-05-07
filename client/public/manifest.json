@@ -1,0 +1,22 @@
+{
+  "short_name": "MyCalendar",
+  "name": "My Calendar - 스마트 일정 관리",
+  "icons": [
+    {
+      "src": "/calendar/logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/calendar/logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/calendar/",
+  "display": "standalone",
+  "theme_color": "#007aff",
+  "background_color": "#ffffff"
+}

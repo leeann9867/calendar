@@ -1,85 +1,91 @@
-import React, { useState } from 'react';
-import { isLastInstance } from '../../utils/calendarUtils';
+import React from 'react';
 
-/**
- * [EventDetail]
- * 일정을 클릭했을 때 뜨는 깔끔한 "상세 보기(Read-only)" 전용 컴포넌트입니다.
- * 입력 컨트롤이 없어 모바일에서 키보드가 올라오는 불편함 없이 정보를 빠르게 파악할 수 있습니다.
- */
-function EventDetail({ event, selectedDate, onClose, onEdit, onDelete }) {
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
+const formatAlarmText = (mins) => {
+    if (mins === 0) return '정각';
+    if (mins % 1440 === 0) return `${mins / 1440}일 전`;
+    if (mins % 60 === 0) return `${mins / 60}시간 전`;
+    return `${mins}분 전`;
+};
 
-    // --------------------------------------------------------
-    // 삭제 로직: 반복 일정인지 아닌지에 따라 모달 띄우기 유무 결정
-    // --------------------------------------------------------
-    const onClickDelete = () => {
-        if (isLastInstance(event)) {
-            if (window.confirm("일정을 삭제하시겠습니까?")) onDelete(event.id, selectedDate, 'all');
+function EventDetail({ event, onDelete, onEdit, onClose, openConfirm }) {
+    if (!event) return null;
+
+    // 🌟 [버그 픽스] 조회 화면에서도 빈 값은 확실히 빈 배열로!
+    const parsedAlarms = (() => {
+        const raw = event?.alarms ?? event?.alarm;
+        if (raw === '' || raw === null || raw === undefined) return [];
+        if (Array.isArray(raw)) return raw.map(Number);
+        if (typeof raw === 'number') return [raw];
+        if (typeof raw === 'string') {
+            try {
+                const p = JSON.parse(raw);
+                if(Array.isArray(p)) return p.map(Number);
+                return raw.split(',').map(Number).filter(n => !isNaN(n));
+            } catch {
+                return raw.split(',').map(Number).filter(n => !isNaN(n));
+            }
+        }
+        return [];
+    })();
+
+    const parsedIsAlarmOn = event?.isAlarmOn !== undefined
+        ? (event.isAlarmOn === true || event.isAlarmOn === 1 || event.isAlarmOn === 'true')
+        : true;
+
+    const handleDelete = () => {
+        if (event.repeatUnit && event.repeatUnit !== 'none') {
+            openConfirm("반복 일정 삭제", "삭제할 범위를 선택해주세요.", [
+                { label: "이 일정만 삭제", action: () => onDelete(event.id, event.startDate, 'single'), className: "sub-btn delete-all" },
+                { label: "이 시점 이후 모두 삭제", action: () => onDelete(event.id, event.startDate, 'following'), className: "sub-btn delete-all" },
+                { label: "전체 삭제", action: () => onDelete(event.id, null, 'all'), className: "sub-btn delete-all" }
+            ]);
         } else {
-            // 반복 일정이 여러 개 묶여있는 경우 서브 모달창(이 일정만 삭제할까요? 등) 띄움
-            setShowDeleteModal(true);
+            openConfirm("일정 삭제", "정말 이 일정을 삭제하시겠습니까?", [
+                { label: "삭제하기", action: () => onDelete(event.id, null, 'all'), className: "sub-btn delete-all" }
+            ]);
         }
     };
 
-    const { title, startDate, endDate, color, tag, repeatUnit, repeatValue, reminderUnit, reminderValue, memo, isAllDay } = event;
-
-    const initStart = (event.startTime || '09:00').split(':');
-    const startHour = initStart[0];
-    const startMinute = initStart[1];
-    const initEnd = (event.endTime || '10:00').split(':');
-    const endHour = initEnd[0];
-    const endMinute = initEnd[1];
+    const unitMap = { daily: '일', weekly: '주', monthly: '개월' };
 
     return (
-        // 클릭 이벤트가 부모(Overlay)로 올라가서 창이 닫히는 것을 막기 위해 stopPropagation 적용
-        <div className="modal-content" onClick={e => e.stopPropagation()}>
-
-            {/* 1. 타이틀 및 시간 영역 (해당 일정 색상으로 좌측 테두리 강조) */}
-            <div className="view-mode-header" style={{ borderLeft: `6px solid ${color}` }}>
-                <h2>{title}</h2>
-                <div className="view-time">
-                    {/* 하루 종일 일정이면 시간 생략, 아니면 시:분 표기 */}
-                    {startDate} {isAllDay ? '(하루 종일)' : `${startHour}:${startMinute} ~ ${startDate !== endDate ? `${endDate} ` : ''}${endHour}:${endMinute}`}
-                </div>
+        <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+            <div className="view-mode-header">
+                <h2>{event.title}</h2>
+                <div className="view-time">📅 {event.startDate} {event.isAllDay ? '(하루 종일)' : `${event.startTime} ~ ${event.endTime}`}</div>
             </div>
 
-            {/* 2. 세부 정보 표시 영역 (데이터가 존재하는 항목만 동적으로 렌더링) */}
             <div className="view-mode-body">
-                {tag && <div className="view-row"><span className="icon">🏷️</span> <span className="tag-badge">{tag}</span></div>}
-
-                {repeatUnit !== 'none' && <div className="view-row"><span className="icon">🔁</span> <span>{repeatValue}{repeatUnit === 'day' ? '일' : repeatUnit === 'week' ? '주' : repeatUnit === 'month' ? '개월' : '년'}마다 반복</span></div>}
-
-                {(reminderValue > 0 || reminderUnit !== 'h') && <div className="view-row"><span className="icon">🔔</span> <span>{reminderValue}{reminderUnit === 'm' ? '분' : reminderUnit === 'h' ? '시간' : '일'} 전 알림</span></div>}
-
-                {memo && (
-                    <div className="view-row align-top">
-                        <span className="icon">📝</span>
-                        <div className="view-memo-box">{memo}</div>
+                <div className="view-row align-top" style={{ alignItems: 'flex-start' }}>
+                    <div className="icon" style={{ marginTop: '2px' }}>🔔</div>
+                    <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {parsedIsAlarmOn && parsedAlarms.length > 0 ? (
+                            parsedAlarms.sort((a,b)=>a-b).map(a => (
+                                <span key={a} className="tag-badge" style={{ backgroundColor: 'var(--sat-blue)' }}>{formatAlarmText(a)}</span>
+                            ))
+                        ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>알림 꺼짐</span>
+                        )}
                     </div>
+                </div>
+
+                {event.repeatUnit !== 'none' && (
+                    <div className="view-row"><div className="icon">🔁</div><span>반복: {event.repeatValue}{unitMap[event.repeatUnit]}마다 (종료: {event.repeatEndDate || '없음'})</span></div>
+                )}
+                <div className="view-row"><div className="icon">🎨</div><div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: event.color, boxShadow: '0 2px 4px var(--shadow)' }} /></div>
+                {event.tag && (
+                    <div className="view-row"><div className="icon">🏷️</div><span className="tag-badge" style={{ backgroundColor: 'var(--text-muted)' }}>{event.tag}</span></div>
+                )}
+                {event.memo && (
+                    <div className="view-row align-top" style={{ alignItems: 'flex-start' }}><div className="icon" style={{ marginTop: '2px' }}>📝</div><div className="view-memo-box">{event.memo}</div></div>
                 )}
             </div>
 
-            {/* 3. 하단 컨트롤 버튼 그룹 */}
             <div className="modal-footer">
-                <button className="btn btn-delete" onClick={onClickDelete}>삭제</button>
-                <button className="btn btn-cancel" onClick={onClose}>닫기</button>
-                <button className="btn btn-save" onClick={onEdit}>수정하기</button>
+                <button onClick={handleDelete} className="btn btn-delete">삭제</button>
+                <button onClick={onClose} className="btn btn-cancel">닫기</button>
+                <button onClick={onEdit} className="btn btn-save">수정</button>
             </div>
-
-            {/* 4. 반복 일정 삭제 확인용 서브 팝업 */}
-            {showDeleteModal && (
-                <div className="sub-modal-overlay">
-                    <div className="sub-modal-content">
-                        <h4>반복 일정 삭제</h4>
-                        <div className="sub-modal-buttons">
-                            <button className="sub-btn" onClick={() => onDelete(event.id, selectedDate, 'single')}>이 일정만 삭제</button>
-                            <button className="sub-btn" onClick={() => onDelete(event.id, selectedDate, 'future')}>이 이후 일정 삭제</button>
-                            <button className="sub-btn delete-all" onClick={() => onDelete(event.id, selectedDate, 'all')}>연관된 모든 일정 삭제</button>
-                        </div>
-                        <button className="sub-btn-cancel" onClick={() => setShowDeleteModal(false)}>취소</button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+// 🌟 아까 만든 icsUtils 파일에서 함수를 불러옵니다. 경로가 다르면 수정해주세요!
+import { exportToICS, importFromICS } from '../utils/icsUtils';
 
 /**
  * [Header]
@@ -6,8 +8,9 @@ import React, { useState, useRef, useEffect } from 'react';
  * - 날짜 이동 (이전, 다음, 오늘)
  * - 연도/월 빠른 이동 팝업 (Date Picker Dropdown)
  * - 뷰 모드 전환 (월간, 주간, 일간)
+ * - ICS 일정 내보내기/가져오기 기능
  */
-function Header({ currentDate, onPrev, onNext, onToday, onJump, viewMode, setViewMode }) {
+function Header({ currentDate, onPrev, onNext, onToday, onJump, viewMode, setViewMode, events, onImport }) {
     const [showPicker, setShowPicker] = useState(false);
     const [pickerYear, setPickerYear] = useState(currentDate.getFullYear());
     const pickerRef = useRef(null);
@@ -40,6 +43,17 @@ function Header({ currentDate, onPrev, onNext, onToday, onJump, viewMode, setVie
         return `${year}년 ${month}월 ${currentDate.getDate()}일`;
     };
 
+    // 🌟 ICS 파일 가져오기 핸들러
+    const handleImportClick = (e) => {
+        const file = e.target.files[0];
+        if (file && onImport) {
+            // DB 저장을 위해 부모(Main.js)에서 넘겨준 onImport 함수 실행
+            importFromICS(file, onImport);
+        }
+        // 같은 파일을 다시 선택해도 반응하도록 input 초기화
+        e.target.value = null;
+    };
+
     return (
         <div className="calendar-header">
             <div className="nav-buttons">
@@ -69,7 +83,28 @@ function Header({ currentDate, onPrev, onNext, onToday, onJump, viewMode, setVie
                         </div>
                     )}
                 </div>
+
                 <button className="header-btn" onClick={onToday}>오늘</button>
+
+                {/* 🌟 ICS 버튼 영역 추가 (오늘 버튼 옆에 찰싹 붙어있습니다) */}
+                <div style={{ display: 'flex', gap: '5px', marginLeft: '5px' }}>
+                    <button
+                        className="header-btn"
+                        onClick={() => exportToICS(events || [])}
+                        title="내보내기 (.ics)"
+                        style={{ padding: '4px 10px' }}
+                    >
+                        ⬆️
+                    </button>
+                    <label
+                        className="header-btn"
+                        title="가져오기 (.ics)"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: 0, padding: '4px 10px' }}
+                    >
+                        ⬇️
+                        <input type="file" accept=".ics" onChange={handleImportClick} style={{ display: 'none' }} />
+                    </label>
+                </div>
             </div>
 
             <div className="nav-buttons">

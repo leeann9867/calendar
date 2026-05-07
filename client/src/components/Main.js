@@ -4,9 +4,11 @@ import CalendarSection from './CalendarSection';
 import SidePanel from './SidePanel';
 import Footer from './Footer';
 import ModalView from './ModalView';
+import ConfirmModal from './modal/ConfirmModal';
 
 import { useEvents } from '../hooks/useEvents';
 import { useAlarms } from '../hooks/useAlarms';
+import { Toaster } from 'react-hot-toast';
 
 /**
  * [Main Component]
@@ -15,17 +17,26 @@ import { useAlarms } from '../hooks/useAlarms';
  * 하위 컴포넌트들에게 프롭스(Props)로 분배해주는 라우터 역할을 합니다.
  */
 function Main() {
-    // 백그라운드 데이터 로직(저장, 삭제, 알림)은 Custom Hook에게 완전히 위임!
-    const { events, handleSaveEvent, handleDeleteEvent, handleUpdateEventDate } = useEvents();
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const { events, isLoading, handleSaveEvent, handleDeleteEvent, handleUpdateEventDate, handleDeleteAllOnDate } = useEvents(currentDate);
     useAlarms(events);
 
-    // 화면 제어를 위한 UI 상태값들
-    const [currentDate, setCurrentDate] = useState(new Date());
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedTag, setSelectedTag] = useState(null); // 태그 필터링을 위한 전역 상태
+    const [selectedTag, setSelectedTag] = useState(null);
     const [modalConfig, setModalConfig] = useState({ isOpen: false, selectedDate: null, event: null });
+
+    const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', options: [] });
+
+    const openConfirm = useCallback((title, message, options) => {
+        setConfirmConfig({ isOpen: true, title, message, options });
+    }, []);
+
+    const closeConfirm = useCallback(() => {
+        setConfirmConfig({ isOpen: false, title: '', message: '', options: [] });
+    }, []);
+
     const [theme, setTheme] = useState(localStorage.getItem('calendar_theme') || 'light');
-    const [viewMode, setViewMode] = useState('month'); // 'month' | 'week' | 'day'
+    const [viewMode, setViewMode] = useState('month');
 
     // 테마가 바뀔 때마다 HTML 문서 최상단 속성(data-theme)을 바꿔서 CSS 전역 변수가 교체되도록 유도
     useEffect(() => {
@@ -64,28 +75,73 @@ function Main() {
     // 방향키 좌우 입력 감지
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (modalConfig.isOpen) return; // 모달이 켜져있으면 무시
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; // 타이핑 중일 때 무시
+            if (modalConfig.isOpen || confirmConfig.isOpen) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (e.key === 'ArrowLeft') handlePrev();
             if (e.key === 'ArrowRight') handleNext();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [modalConfig.isOpen, handlePrev, handleNext]);
+    }, [modalConfig.isOpen, confirmConfig.isOpen, handlePrev, handleNext]);
 
-    // 모달 닫기 래퍼 함수 (성공적으로 저장/삭제될 경우에만 모달을 닫음)
-    const onSave = (data, mode, instanceDate) => {
-        const success = handleSaveEvent(data, mode, instanceDate);
+    const onSave = async (data, mode, instanceDate) => {
+        const success = await handleSaveEvent(data, mode, instanceDate);
         if (success) setModalConfig({ isOpen: false, selectedDate: null, event: null });
     };
 
-    const onDelete = (eventId, instanceDate, mode) => {
-        handleDeleteEvent(eventId, instanceDate, mode);
+    const onDelete = async (eventId, instanceDate, mode) => {
+        await handleDeleteEvent(eventId, instanceDate, mode);
         setModalConfig({ isOpen: false, selectedDate: null, event: null });
     };
 
+    // 🌟 [버그 픽스] className을 "sub-btn delete-all"로 수정하여 서브 모달 디자인과 매칭!
+    const confirmDeleteAll = useCallback((dateStr, targetEvents) => {
+        if (!targetEvents || targetEvents.length === 0) return;
+        openConfirm(
+            "일괄 삭제",
+            `${dateStr}의 모든 일정(${targetEvents.length}개)을 삭제하시겠습니까?`,
+            [{ label: "모두 삭제하기", className: "sub-btn delete-all", action: () => handleDeleteAllOnDate(dateStr, targetEvents) }]
+        );
+    }, [handleDeleteAllOnDate, openConfirm]);
+
     return (
         <div className="app-container">
+            <Toaster
+                position="top-center"
+                reverseOrder={false}
+                containerStyle={{ zIndex: 999999 }}
+                toastOptions={{
+                    // 🌟 1. 토스트 전체 기본 스타일 (넓게, 예쁘게, 테마 연동)
+                    style: {
+                        minWidth: '350px',       // 기본 너비를 확 넓혔습니다!
+                        maxWidth: '90vw',        // 모바일에서도 화면을 넘지 않게 방어
+                        padding: '16px 24px',    // 위아래 양옆 여백을 넉넉하게
+                        fontSize: '1.05rem',     // 글씨 크기 약간 키움
+                        fontWeight: '600',
+                        borderRadius: '16px',    // 앱 모달들과 통일감 있게 둥글게
+                        background: 'var(--bg-card)', // 라이트/다크 모드 배경색 연동
+                        color: 'var(--text-main)',    // 텍스트 색상 연동
+                        boxShadow: '0 10px 40px var(--shadow)',
+                        border: '1px solid var(--border-color)'
+                    },
+                    // 🌟 2. 성공 알림 (초록색 체크)
+                    success: {
+                        iconTheme: {
+                            primary: 'var(--sat-blue)', // 체크 아이콘 색상을 포인트 블루로
+                            secondary: 'white',
+                        },
+                    },
+                    // 🌟 3. 에러/삭제 알림 (빨간색 엑스)
+                    error: {
+                        iconTheme: {
+                            primary: 'var(--sun-red)',
+                            secondary: 'white',
+                        },
+                    },
+                }}
+            />
+            <ConfirmModal config={confirmConfig} onClose={closeConfirm} />
+
             <div className="top-header-row">
                 <h1 className="main-title">My Calendar</h1>
                 <button className="theme-toggle" onClick={toggleTheme}>
@@ -101,14 +157,18 @@ function Main() {
                         currentDate={currentDate} onPrev={handlePrev} onNext={handleNext}
                         onToday={() => setCurrentDate(new Date())} onJump={(y, m) => setCurrentDate(new Date(y, m - 1, 1))}
                         theme={theme} onToggleTheme={toggleTheme} viewMode={viewMode} setViewMode={setViewMode}
+                        events={events}
+                        onImport={(data) => handleSaveEvent(data, 'all')}
                     />
                     {/* 중앙 달력 본문 (여기서 월/주/일 분기 처리됨) */}
                     <CalendarSection
                         currentDate={currentDate}
-                        events={events.filter(ev => ev.title.toLowerCase().includes(searchTerm.toLowerCase()))} // 검색 필터링 즉시 적용
+                        events={events.filter(ev => ev.title.toLowerCase().includes(searchTerm.toLowerCase()))}
                         selectedTag={selectedTag}
+                        isLoading={isLoading}
                         onOpenModal={(date, ev) => setModalConfig({ isOpen: true, selectedDate: date, event: ev })}
                         onUpdateEventDate={handleUpdateEventDate}
+                        onDeleteAllOnDate={confirmDeleteAll}
                         onPrev={handlePrev} onNext={handleNext}
                         viewMode={viewMode}
                     />
@@ -135,6 +195,7 @@ function Main() {
                     onClose={() => setModalConfig({ isOpen: false, selectedDate: null, event: null })}
                     onSave={onSave}
                     onDelete={onDelete}
+                    openConfirm={openConfirm}
                 />
             )}
         </div>
