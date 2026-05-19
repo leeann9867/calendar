@@ -151,7 +151,30 @@ function EventForm({ selectedDate, initData, onSave, onDelete, onClose, events, 
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
-    const handleTimeChange = (name, val) => setFormData(prev => ({ ...prev, [name]: val }));
+    const handleTimeChange = (name, val) => {
+        setFormData(prev => {
+            // 1. 일단 사용자가 휠을 굴려 바꾼 값을 적용합니다.
+            const updated = { ...prev, [name]: val };
+
+            // 2. 바뀐 값을 바탕으로 완전한 Date 객체(날짜+시간)를 만듭니다.
+            const startObj = new Date(`${updated.startDate}T${updated.startTime}`);
+            const endObj = new Date(`${updated.endDate}T${updated.endTime}`);
+
+            // 3. 🚨 시간 역전 방지 로직
+            // 시작 시간이 종료 시간과 같아지거나 그 이후(미래)로 설정된 경우
+            // 또는 사용자가 억지로 종료 시간을 시작 시간 이전(과거)으로 당기려는 경우
+            if (startObj >= endObj) {
+                // 시작 시간 기준 딱 1시간(60분 * 60초 * 1000밀리초) 뒤로 세팅
+                const newEndObj = new Date(startObj.getTime() + 60 * 60 * 1000);
+
+                // utils에 만든 getFormatDate를 활용해 11시 -> 다음날 0시로 날짜가 넘어가는 것도 대응
+                updated.endDate = getFormatDate(newEndObj);
+                updated.endTime = `${String(newEndObj.getHours()).padStart(2, '0')}:${String(newEndObj.getMinutes()).padStart(2, '0')}`;
+            }
+
+            return updated;
+        });
+    };
     const handleColorClick = (color) => setFormData(prev => ({ ...prev, color }));
 
     const handleAlarmToggle = (minutes) => {
