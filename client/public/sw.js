@@ -4,8 +4,9 @@
 const CACHE_NAME = 'calendar-pwa-v2';
 
 const urlsToCache = [
-    '/',
-    '/index.html'
+    '/calendar/',
+    '/calendar/index.html',
+    '/calendar/favicon.ico'
 ];
 
 self.addEventListener('install', (event) => {
