@@ -6,7 +6,10 @@ const { Pool } = require('pg');
 const axios = require('axios'); // 🌟 공공 API 호출을 위한 패키지 추가
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: 'https://leeann9867.github.io',
+    credentials: true
+}));
 app.use(express.json());
 
 const pool = new Pool({

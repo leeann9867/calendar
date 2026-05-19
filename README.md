@@ -1,70 +1,50 @@
-# Getting Started with Create React App
+# :date: Smart Calendar Web App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+사용자 친화적인 인터페이스와 강력한 일정 관리 알고리즘을 갖춘 풀스택(Full-Stack) 캘린더 애플리케이션입니다. 단순한 CRUD를 넘어, **복잡한 반복 일정의 예외 처리, 다중 알림 시스템, 그리고 공공데이터 연동을 통한 자동 휴일 캐싱 로직**에 집중하여 개발했습니다.
 
-## Available Scripts
+## :sparkles: Key Technical Highlights (핵심 기술 포인트)
 
-In the project directory, you can run:
+단순한 일정 등록을 넘어, 실제 상용 서비스 수준의 디테일한 로직 구현에 집중했습니다.
 
-### `npm start`
+### 1. 구글 캘린더 수준의 완벽한 반복 일정 알고리즘
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+* **예외 처리 로직 구현:** 매주/매월 반복되는 일정 중 특정 날짜만 수정/삭제할 때 발생하는 예외 상황을 완벽하게 제어합니다.
+* **독립적인 DB 설계:** RDBMS(PostgreSQL)를 활용해 원본 일정(events)과 예외 일정(event_exceptions)을 분리하여 `이 일정만 삭제`, `이후 일정 모두 삭제` 등의 복잡한 쿼리 동작을 구현했습니다.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### 2. 고도화된 커스텀 태그 & 다중 알림 시스템
 
-### `npm test`
+* **히스토리 기반 태그 시스템:** 고정된 태그를 선택하는 것을 넘어, 사용자가 직접 수동으로 태그를 입력하고 이전에 사용했던 태그 히스토리를 불러와 선택할 수 있는 확장성 있는 UI/UX를 구축했습니다.
+* **다중 교차 알림(Alarms):** 단순한 ON/OFF 토글이 아닌, `10분 전`, `1시간 전` 등 여러 개의 특정 알림 시간을 동시에 설정하고 관리할 수 있는 고도화된 알림 모달과 서버 로직을 구현했습니다.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### 3. 공공데이터 API 연동 및 스마트 메모리 캐싱
 
-### `npm run build`
+* **자동 공휴일 매핑:** 매년 바뀌는 음력 명절과 대체공휴일을 수동으로 입력하지 않고, 대한민국 공공데이터포털(특일 정보) API와 연동해 자동으로 달력에 렌더링합니다.
+* **서버 캐싱(Caching) 최적화:** 공공 API의 속도 저하 및 호출 제한(Rate Limit)을 방지하기 위해, Node.js 서버 단에서 한 번 긁어온 연도의 데이터를 서버 메모리에 캐싱하여 프론트엔드에 0.01초 만에 즉시 반환하도록 응답 속도를 극대화했습니다.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 4. PWA(Progressive Web App) 도입 & 모바일 UX
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+* **네이티브 앱 경험:** `manifest.json`과 Service Worker를 구성하여 브라우저 주소창 없이 모바일 홈 화면에 직접 설치하고 실행할 수 있습니다.
+* **Touch & Drag 인터랙션:** 모바일 환경을 고려하여 꾹 눌러 일괄 삭제하기(Long Press), 달력 스와이프, 고스트(Ghost) 엘리먼트가 따라다니는 일정 드래그 앤 드롭 기능을 직접 구현하여 직관적인 UX를 제공합니다.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## :tools: Tech Stack
 
-### `npm run eject`
+* **Frontend:** React, CSS3 (Custom Properties), PWA
+* **Backend:** Node.js, Express.js
+* **Database:** PostgreSQL (with `pg` 모듈)
+* **API / 3rd Party:** Axios, 공공데이터포털 API
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## :rocket: Core Features (상세 기능)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+* **다양한 뷰 모드:** 월간 뷰(Month View)와 타임 그리드 뷰(Time Grid View) 지원
+* **일정 CRUD:** 드래그 앤 드롭으로 일정 시간 이동 및 캘린더 내 즉각 렌더링
+* **반복 설정:** 매일/매주/매월/매년 반복 및 특정 종료일 지정
+* **필터링:** 태그별 일정 하이라이트 및 모아보기 기능
+* **모바일 최적화 UI:** 좁은 화면에서는 점(Dot)으로 일정을 요약하고, 선택 시 하단 Bottom Sheet 형태로 상세 일정 리스트 제공
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## :gear: Architecture & Data Flow
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+이 프로젝트는 확장이 용이한 **3-Tier 아키텍처**를 따릅니다.
 
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+1. **Client (React):** 렌더링 최적화(`useMemo`, `useCallback`)를 통해 무거운 달력 계산 로직의 부하를 줄였습니다.
+2. **Server (Express):** 안전한 데이터베이스 접근과 외부 API(공공데이터) 중계 및 캐싱 역할을 수행합니다.
+3. **Database (PostgreSQL):** 관계형 데이터베이스의 특성을 살려 일정, 상세 정보, 예외 날짜를 체계적으로 관리합니다.
