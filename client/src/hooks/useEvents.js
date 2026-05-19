@@ -10,7 +10,7 @@ const cleanString = (str) => {
     return str.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
 };
 const BASE_URL = process.env.REACT_APP_API_URL;
-const API_URL = `${BASE_URL}/api/events/`;
+const API_URL = `${BASE_URL}/api/events`;
 
 export function useEvents(currentDate) {
     const [events, setEvents] = useState([]);
