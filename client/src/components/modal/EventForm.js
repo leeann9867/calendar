@@ -160,20 +160,44 @@ function EventForm({ selectedDate, initData, onSave, onDelete, onClose, events, 
             const startObj = new Date(`${updated.startDate}T${updated.startTime}`);
             const endObj = new Date(`${updated.endDate}T${updated.endTime}`);
 
-            // 🌟 3-1. 사용자가 '시작 시간'이나 '시작 날짜'를 건드린 경우
+            // 3. 시작 시간을 변경할 때는 1시간 간격 유지
             if (name === 'startTime' || name === 'startDate') {
-                // 시간을 앞으로 당기든 뒤로 미루든, 무조건 종료 시간을 1시간 뒤로 자석처럼 붙임
                 const newEndObj = new Date(startObj.getTime() + 60 * 60 * 1000);
-
                 updated.endDate = getFormatDate(newEndObj);
                 updated.endTime = `${String(newEndObj.getHours()).padStart(2, '0')}:${String(newEndObj.getMinutes()).padStart(2, '0')}`;
             }
-            // 🌟 3-2. 사용자가 '종료 시간'이나 '종료 날짜'를 직접 건드린 경우
-            else if (name === 'endTime' || name === 'endDate') {
-                // 이때는 역전 현상(종료가 시작보다 과거로 가는 것)만 방지
-                if (startObj >= endObj) {
-                    const newEndObj = new Date(startObj.getTime() + 60 * 60 * 1000);
 
+            // 4. '종료 시간 휠' 조작 시 자정 크로스 감지 로직
+            else if (name === 'endTime') {
+                // 시간을 분(Minute) 단위 숫자로 변환해서 직관적으로 크기 비교
+                const [startH, startM] = updated.startTime.split(':').map(Number);
+                const [endH, endM] = updated.endTime.split(':').map(Number);
+                const startMins = startH * 60 + startM;
+                const endMins = endH * 60 + endM;
+
+                // 시작일과 종료일의 '날짜 차이' 계산 (0이면 같은 날, 1이면 다음 날)
+                const sDate = new Date(updated.startDate);
+                const eDate = new Date(updated.endDate);
+                const dayDiff = Math.round((eDate - sDate) / (1000 * 60 * 60 * 24));
+
+                // [상황 A] 같은 날인데 휠을 올려서 00시~새벽으로 넘어간 경우 (23시 -> 00시)
+                if (dayDiff === 0 && endMins <= startMins) {
+                    // 눈치껏 날짜를 내일로 하루 플러스!
+                    eDate.setDate(eDate.getDate() + 1);
+                    updated.endDate = getFormatDate(eDate);
+                }
+                // [상황 B] 내일 새벽인데 휠을 내려서 다시 어제 밤으로 돌아온 경우 (00시 -> 23시)
+                else if (dayDiff === 1 && endMins > startMins) {
+                    // 눈치껏 날짜를 다시 오늘로 되돌림!
+                    eDate.setDate(eDate.getDate() - 1);
+                    updated.endDate = getFormatDate(eDate);
+                }
+            }
+
+            // 5. 종료 날짜 오류 방지
+            else if (name === 'endDate') {
+                if (endObj <= startObj) {
+                    const newEndObj = new Date(startObj.getTime() + 60 * 60 * 1000);
                     updated.endDate = getFormatDate(newEndObj);
                     updated.endTime = `${String(newEndObj.getHours()).padStart(2, '0')}:${String(newEndObj.getMinutes()).padStart(2, '0')}`;
                 }
